@@ -1,2 +1,2 @@
-# iotproject2
-Final project for MAE 6291
+# MAE 6291: Internet-of-Things for Engineers Spring 2025
+## Final Project: IoT Christmas Tree
