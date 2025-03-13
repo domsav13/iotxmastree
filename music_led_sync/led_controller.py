@@ -4,7 +4,7 @@ import time
 
 # Pin and number of LEDs
 LED_PIN = board.D18
-NUM_LEDS = 60
+NUM_LEDS = 50
 
 pixels = neopixel.NeoPixel(LED_PIN, NUM_LEDS, brightness=0.5, auto_write=False)
 
