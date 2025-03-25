@@ -8,9 +8,10 @@ BRIGHTNESS = 0.5    # Brightness (0.0 to 1.0)
 
 pixels = neopixel.NeoPixel(PIN, LED_COUNT, brightness=BRIGHTNESS, auto_write=False)
 
-def light_next_led(index):
+def light_single_led(index):
+    pixels.fill((0, 0, 0))  # Turn off all LEDs
     if index < LED_COUNT:
-        pixels[index] = (255, 255, 255)  # White color
+        pixels[index] = (255, 255, 255)  # Light only this LED
         pixels.show()
         print(f"LED {index + 1} lit")
 
@@ -20,9 +21,9 @@ def main():
     try:
         while current_led < LED_COUNT:
             input("Press Enter to light the next LED...")
-            light_next_led(current_led)
+            light_single_led(current_led)
             current_led += 1
-        print("All LEDs are lit!")
+        print("Done! All LEDs lit one at a time.")
     
     except KeyboardInterrupt:
         pixels.fill((0, 0, 0))  # Turn off LEDs
