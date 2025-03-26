@@ -2,19 +2,22 @@ import time
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
-def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0), wave_speed=2.0):
+def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1, 
+                 wave_color=Color(0, 255, 0), background_color=Color(255, 255, 255), wave_speed=2.0):
     """
-    Animate a wave (a plane of lit LEDs) moving up and down the tree.
+    Animate a green wave (a band of lit LEDs) moving up and down the tree, 
+    with all other LEDs remaining white.
     
     Parameters:
       csv_file (str): Path to the CSV file with LED coordinates (columns: X, Y, Z)
-      interval (float): Time in seconds between updates.
+      interval (float): Time in seconds between LED updates.
       duration (float): Total duration in seconds for the animation.
       wave_thickness_ratio (float): Fraction of the total tree height used as the thickness of the wave.
-      wave_color: LED color for the wave (using rpi_ws281x.Color)
-      wave_speed (float): Multiplier for the wave's movement speed. Higher values move the wave faster.
+      wave_color: LED color for the wave (green).
+      background_color: LED color for the background (white).
+      wave_speed (float): Multiplier for the wave's movement speed.
     """
-    # Load LED coordinates; assume physical order corresponds to CSV order.
+    # Load LED coordinates and assume physical order corresponds to CSV row order.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
     df_sorted = df.sort_values('Z').reset_index(drop=True)
@@ -41,21 +44,21 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
     # Calculate movement parameters.
     total_steps = duration / interval
     half_steps = total_steps / 2
-    delta = tree_height / half_steps  # base delta per update
+    delta = tree_height / half_steps  # Base delta per update
 
     wave_position = tree_z_min
     direction = 1  # 1 for upward, -1 for downward
 
     start_time = time.time()
     while time.time() - start_time < duration:
-        # Update each LED: light if its Z coordinate is within the current wave band.
+        # For each LED, if its Z coordinate falls within the wave band, light it green; otherwise, set it white.
         for _, row in df_sorted.iterrows():
             led_z = row['Z']
             physical_index = int(row['led_index'])  # Ensure index is a native Python int
             if abs(led_z - wave_position) <= wave_thickness / 2:
                 strip.setPixelColor(physical_index, wave_color)
             else:
-                strip.setPixelColor(physical_index, Color(0, 0, 0))
+                strip.setPixelColor(physical_index, background_color)
         strip.show()
         time.sleep(interval)
         
@@ -69,5 +72,6 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
             direction = 1
 
 if __name__ == '__main__':
-    # Adjust the wave_speed parameter to control how fast the wave moves.
-    animate_wave('coordinates.csv', interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0), wave_speed=2.0)
+    animate_wave('coordinates.csv', interval=0.05, duration=30, 
+                 wave_thickness_ratio=0.1, wave_color=Color(0, 255, 0), 
+                 background_color=Color(255, 255, 255), wave_speed=6.0)
