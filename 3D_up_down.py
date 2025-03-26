@@ -71,4 +71,4 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
 
 if __name__ == '__main__':
     # Adjust parameters as needed:
-    animate_wave('/mnt/data/coordinates.csv', interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0))
+    animate_wave('coordinates.csv', interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0))
