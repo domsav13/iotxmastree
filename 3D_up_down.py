@@ -2,58 +2,73 @@ import time
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
-def animate_leds(csv_file, interval=0.2, duration=30):
+def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0)):
     """
-    Animate the LED strip by lighting LEDs from the bottom to the top and then reversing the order.
-
+    Animate a wave (a plane of lit LEDs) moving up and down the tree.
+    
     Parameters:
       csv_file (str): Path to the CSV file with LED coordinates (columns: X, Y, Z)
-      interval (float): Time in seconds between LED updates.
+      interval (float): Time in seconds between updates.
       duration (float): Total duration in seconds for the animation.
+      wave_thickness_ratio (float): Fraction of the total tree height used as the thickness of the wave.
+      wave_color: LED color for the wave (using rpi_ws281x.Color)
     """
-    # Load LED coordinates from CSV
+    # Load LED coordinates and assume physical order corresponds to CSV order.
     df = pd.read_csv(csv_file)
-    # Add a column for physical LED index (assumes CSV row order matches the physical order)
     df['led_index'] = df.index
-
-    # Sort LEDs by the Z coordinate (lowest Z at the bottom)
     df_sorted = df.sort_values('Z').reset_index(drop=True)
-    # Extract the physical LED indices in sorted order
-    sorted_led_indices = df_sorted['led_index'].tolist()
+    
+    # Determine the tree's vertical span and set the wave's thickness.
+    tree_z_min = df_sorted['Z'].min()
+    tree_z_max = df_sorted['Z'].max()
+    tree_height = tree_z_max - tree_z_min
+    wave_thickness = tree_height * wave_thickness_ratio
 
-    # LED strip configuration:
+    # LED strip configuration
     LED_COUNT      = len(df)       # Total number of LEDs
-    LED_PIN        = 18            # GPIO pin connected to the data signal (must support PWM)
-    LED_FREQ_HZ    = 800000        # LED signal frequency in hertz (usually 800kHz)
+    LED_PIN        = 18            # GPIO pin (data signal)
+    LED_FREQ_HZ    = 800000        # LED signal frequency in hertz
     LED_DMA        = 10            # DMA channel to use for generating signal
     LED_BRIGHTNESS = 255           # Brightness (0 to 255)
-    LED_INVERT     = False         # True to invert the signal (when using NPN transistor level shift)
+    LED_INVERT     = False         # True to invert the signal (if needed)
     LED_CHANNEL    = 0             # Set to 0 for GPIO 18
 
-    # Create PixelStrip object with the configuration.
+    # Initialize the LED strip.
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # Build a sequence: go from bottom to top, then reverse (excluding the top LED to avoid duplicate)
-    sequence = sorted_led_indices + sorted_led_indices[-2::-1]
+    # Define the wave movement:
+    # The wave will move from the bottom (tree_z_min) to the top (tree_z_max) and then back down.
+    # Calculate the change in position per update (delta) so that half the total steps go upward.
+    total_steps = duration / interval
+    half_steps = total_steps / 2
+    delta = tree_height / half_steps
+
+    wave_position = tree_z_min
+    direction = 1  # 1 for upward, -1 for downward
 
     start_time = time.time()
-    seq_idx = 0
-
     while time.time() - start_time < duration:
-        # Get the physical LED index to light up next.
-        current_led = sequence[seq_idx % len(sequence)]
-
-        # Turn off all LEDs first.
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-
-        # Light the current LED in red.
-        strip.setPixelColor(current_led, Color(255, 0, 0))
+        # Update each LED: light if its Z is within the wave band.
+        for _, row in df_sorted.iterrows():
+            led_z = row['Z']
+            physical_index = row['led_index']
+            if abs(led_z - wave_position) <= wave_thickness / 2:
+                strip.setPixelColor(physical_index, wave_color)
+            else:
+                strip.setPixelColor(physical_index, Color(0, 0, 0))
         strip.show()
-
         time.sleep(interval)
-        seq_idx += 1
+        
+        # Update the wave position
+        wave_position += direction * delta
+        if wave_position > tree_z_max:
+            wave_position = tree_z_max
+            direction = -1
+        elif wave_position < tree_z_min:
+            wave_position = tree_z_min
+            direction = 1
 
 if __name__ == '__main__':
-    animate_leds('/mnt/data/coordinates.csv', interval=0.2, duration=30)
+    # Adjust parameters as needed:
+    animate_wave('/mnt/data/coordinates.csv', interval=0.05, duration=30, wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0))
