@@ -39,7 +39,6 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
 
     # Define the wave movement:
     # The wave will move from the bottom (tree_z_min) to the top (tree_z_max) and then back down.
-    # Calculate the change in position per update (delta) so that half the total steps go upward.
     total_steps = duration / interval
     half_steps = total_steps / 2
     delta = tree_height / half_steps
@@ -52,7 +51,7 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
         # Update each LED: light if its Z is within the wave band.
         for _, row in df_sorted.iterrows():
             led_z = row['Z']
-            physical_index = row['led_index']
+            physical_index = int(row['led_index'])  # cast to int to ensure compatibility
             if abs(led_z - wave_position) <= wave_thickness / 2:
                 strip.setPixelColor(physical_index, wave_color)
             else:
