@@ -6,7 +6,9 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
                  wave_color=Color(0, 255, 0), background_color=Color(255, 255, 255), wave_speed=2.0):
     """
     Animate a green wave (a band of lit LEDs) moving up and down the tree, 
-    with all other LEDs remaining white.
+    with all other LEDs initially white.
+    
+    After the animation completes, all LEDs are turned off.
     
     Parameters:
       csv_file (str): Path to the CSV file with LED coordinates (columns: X, Y, Z)
@@ -17,7 +19,7 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
       background_color: LED color for the background (white).
       wave_speed (float): Multiplier for the wave's movement speed.
     """
-    # Load LED coordinates and assume physical order corresponds to CSV row order.
+    # Load LED coordinates; assume physical order corresponds to CSV row order.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
     df_sorted = df.sort_values('Z').reset_index(drop=True)
@@ -33,7 +35,7 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
     LED_PIN        = 18            # GPIO pin (data signal)
     LED_FREQ_HZ    = 800000        # LED signal frequency in hertz
     LED_DMA        = 10            # DMA channel to use for generating signal
-    LED_BRIGHTNESS = 255           # Brightness (0 to 255)
+    LED_BRIGHTNESS = 125           # Brightness (0 to 255)
     LED_INVERT     = False         # True to invert the signal (if needed)
     LED_CHANNEL    = 0             # Set to 0 for GPIO 18
 
@@ -71,7 +73,12 @@ def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1,
             wave_position = tree_z_min
             direction = 1
 
+    # Once the animation is complete, turn off all the LEDs.
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
+
 if __name__ == '__main__':
     animate_wave('coordinates.csv', interval=0.05, duration=30, 
-                 wave_thickness_ratio=0.1, wave_color=Color(0, 255, 0), 
+                 wave_thickness_ratio=0.1, wave_color=Color(255, 0, 0), 
                  background_color=Color(255, 255, 255), wave_speed=6.0)
