@@ -3,7 +3,7 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
 def animate_wave(csv_file, interval=0.05, duration=30, wave_thickness_ratio=0.1, 
-                 wave_color=Color(0, 255, 0), background_color=Color(255, 255, 255), wave_speed=2.0):
+                 wave_color=Color(255, 0, 0), background_color=Color(255, 255, 255), wave_speed=2.0):
     """
     Animate a green wave (a band of lit LEDs) moving up and down the tree, 
     with all other LEDs initially white.
