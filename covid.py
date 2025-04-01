@@ -104,4 +104,4 @@ def animate_contagious_effect(csv_file, overall_duration=30, interval=0.01, cont
 if __name__ == '__main__':
     # Adjust 'coordinates.csv' to match your file location if necessary.
     animate_contagious_effect('coordinates.csv', overall_duration=30, interval=0.01,
-                                contagion_speed=1.0, hold_time=0.5)
+                                contagion_speed=10.0, hold_time=0.5)
