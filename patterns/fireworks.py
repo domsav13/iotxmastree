@@ -5,7 +5,7 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
 def animate_fireworks(csv_file, duration=30, interval=0.05,
-                      firework_duration=1.0, spawn_chance=0.05, blast_radius_factor=0.5):
+                      firework_duration=0.75, spawn_chance=0.05, blast_radius_factor=0.5):
     """
     Animate random firework effects on a 3D LED tree with overlapping bursts using color groups.
 
