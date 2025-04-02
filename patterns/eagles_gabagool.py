@@ -3,7 +3,20 @@ import math
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
-def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='eagles'):
+def apply_gamma(color, gamma=2.2):
+    """
+    Apply gamma correction to an (R, G, B) tuple.
+    The input values are assumed to be in the 0–255 range.
+    Returns a new (R, G, B) tuple with gamma correction applied.
+    """
+    r, g, b = color
+    r_corr = int(((r / 255.0) ** (1.0 / gamma)) * 255)
+    g_corr = int(((g / 255.0) ** (1.0 / gamma)) * 255)
+    b_corr = int(((b / 255.0) ** (1.0 / gamma)) * 255)
+    return (r_corr, g_corr, b_corr)
+
+def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2.0, 
+                                   spiral_factor=4*math.pi, team='eagles'):
     """
     Animate a spiral pattern on a 3D LED tree using discrete team colors.
     
@@ -11,7 +24,9 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
         phase = theta + (normalized_z * spiral_factor) + (speed * time)
     The phase (wrapped into [0, 2π]) is then used to select one of the discrete team colors.
     
-    Colors are defined in GRB order (as expected by your LED strip).
+    Colors are defined in GRB order (as expected by your LED strip). A gamma correction
+    is applied so that when brightness is reduced (LED_BRIGHTNESS < 255) the perceived colors
+    match the intended values.
     
     Parameters:
       csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
@@ -46,18 +61,28 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
     
     # Define team palettes in GRB order.
     if team.lower() == 'eagles':
+        # Eagles palette (GRB):
+        #   Midnight Green: (76, 0, 84)
+        #   Green:          (106, 4, 56)
+        #   Silver:         (96, 96, 98)
+        #   White:          (255, 255, 255)
+        #   Kelly Green:    (187, 76, 23)
         team_colors = [
-            (76, 0, 84),      # Midnight Green GRB
-            (106, 4, 56),     # Green GRB
-            (96, 96, 98),     # Silver GRB
-            (255, 255, 255),  # White
-            (187, 76, 23)     # Kelly Green GRB
+            (76, 0, 84),
+            (106, 4, 56),
+            (96, 96, 98),
+            (255, 255, 255),
+            (187, 76, 23)
         ]
     elif team.lower() == 'italian':
+        # Italian palette (GRB):
+        #   Green: (140, 0, 69)
+        #   Red:   (33, 205, 42)
+        #   White: (255, 255, 255)
         team_colors = [
-            (255, 0, 0),     # Italian Green GRB
-            (0, 255, 0),    # Italian Red GRB
-            (255, 255, 255)   # White
+            (140, 0, 69),
+            (33, 205, 42),
+            (255, 255, 255)
         ]
     else:
         team_colors = [(0, 255, 0)]
@@ -78,8 +103,10 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
             phase %= (2 * math.pi)
             # Map phase into one of the discrete team colors.
             color_index = int((phase / (2 * math.pi)) * num_colors) % num_colors
-            color = team_colors[color_index]
-            strip.setPixelColor(int(row['led_index']), Color(*color))
+            base_color = team_colors[color_index]
+            # Apply gamma correction to counteract brightness effects.
+            corrected_color = apply_gamma(base_color, gamma=2.2)
+            strip.setPixelColor(int(row['led_index']), Color(*corrected_color))
         strip.show()
         time.sleep(interval)
     
@@ -89,6 +116,5 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
     strip.show()
 
 if __name__ == '__main__':
-    # To test the Eagles palette, use team='eagles'.
-    # To test the Italian flag, change team='italian'.
+    # To test, set team to 'eagles' or 'italian'
     animate_spiral_team_colors_RGB('coordinates.csv', duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='italian')
