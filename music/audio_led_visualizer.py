@@ -110,4 +110,4 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
 
 if __name__ == '__main__':
     # Replace 'coordinates.csv' and 'song.mp3' with your file paths if needed.
-    animate_music_sync('coordinates.csv', 'song.mp3', chunk_size=1024, interval=0.05, led_scale=10.0)
+    animate_music_sync('coordinates.csv', 'mariah.mp3', chunk_size=1024, interval=0.05, led_scale=10.0)
