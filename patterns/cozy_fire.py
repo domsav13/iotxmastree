@@ -6,43 +6,41 @@ from rpi_ws281x import PixelStrip, Color
 def heat_to_color(heat):
     """
     Map a heat value (0–255) to an RGB color in GRB order for a fire-like palette:
-      - Low heat: black to red,
-      - Mid heat: red to orange,
-      - High heat: orange to yellow.
+      - Low heat (0–84): black to red,
+      - Mid heat (85–169): red to orange,
+      - High heat (170–255): orange to yellow.
     """
     if heat < 85:
-        # Black to red.
+        # Black to red: in GRB, red is in the second position.
         return (0, heat * 3, 0)
     elif heat < 170:
-        # Red to orange.
+        # Red to orange: increasing green component.
         return ((heat - 85) * 3, 255, 0)
     else:
-        # Orange to yellow.
+        # Orange to yellow: increase blue component.
         return (255, 255, (heat - 170) * 3)
 
 def animate_fireplace(csv_file, duration=30, interval=0.05, cooling=55, sparking=120):
     """
-    Animate a calm, fireplace-style flame on a 3D LED tree that appears to shoot upward.
+    Animate a fireplace-style flame on a 3D LED tree that reflects a more realistic fire.
     
-    The effect simulates a fire at the bottom of the tree by:
-      1. Sorting the LEDs by their Z coordinate.
-      2. Using a "heat" array (0–255) that is cooled, diffused upward,
-         and occasionally ignited at the bottom.
-      3. Inverting the heat values before mapping them to a color, so that
-         the base (with high heat) shows as red and the top (with lower heat)
-         shows as orange to yellow/white.
+    In this version:
+      - The LEDs are sorted by their Z coordinate (with the base at the bottom).
+      - A heat array is cooled, diffused upward, and occasionally ignited at the base.
+      - New sparks at the base use modest heat additions so that the base remains mostly red,
+        while upward diffusion lets the heat increase into the orange and yellow ranges.
     
     Parameters:
       csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
-      duration (float): Total animation duration in seconds.
+      duration (float): Total animation duration (seconds).
       interval (float): Delay between frames (seconds).
-      cooling (int): Cooling factor to lower the heat (higher cools faster).
+      cooling (int): Cooling factor (higher values cool faster).
       sparking (int): Likelihood (0–255) of new sparks at the base.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
-    # Sort by Z coordinate so that lower LEDs (base of tree) come first.
+    # Sort LEDs by Z so that the base (lowest Z) is first.
     df_sorted = df.sort_values('Z').reset_index(drop=True)
     LED_COUNT = len(df_sorted)
 
@@ -63,35 +61,32 @@ def animate_fireplace(csv_file, duration=30, interval=0.05, cooling=55, sparking
 
     animation_start = time.time()
     while time.time() - animation_start < duration:
-        # 1. Cool down every cell a little.
+        # 1. Cool down every LED a bit.
         for i in range(LED_COUNT):
             cooldown = random.randint(0, ((cooling * 10) // LED_COUNT) + 2)
             heat[i] = max(0, heat[i] - cooldown)
 
-        # 2. Heat diffusion upward.
-        # For each LED (from top down), let its heat be influenced by the lower LEDs.
+        # 2. Diffuse the heat upward.
+        # Each LED (from the top down) gets some influence from the ones below.
         for i in range(LED_COUNT - 1, 1, -1):
             heat[i] = (heat[i - 1] + heat[i - 2] + heat[i - 2]) // 3
 
-        # 3. Randomly ignite new sparks near the bottom.
+        # 3. Randomly ignite new sparks near the base.
+        # Instead of adding very high heat (which would yield orange/yellow), we add modest values.
         if random.randint(0, 255) < sparking:
-            y = random.randint(0, min(7, LED_COUNT - 1))
-            heat[y] = min(255, heat[y] + random.randint(160, 255))
+            y = random.randint(0, min(7, LED_COUNT - 1))  # Only in the bottom region.
+            heat[y] = min(255, heat[y] + random.randint(20, 80))  # Lower spark values.
 
-        # 4. Invert the heat value before mapping it to a color.
-        # This means that if the heat is high (at the base), display_heat becomes low,
-        # which maps to red, while at the top the lower heat becomes high display_heat,
-        # mapping to orange/yellow.
+        # 4. Map heat to color and update the LED strip.
         for i in range(LED_COUNT):
-            display_heat = 255 - heat[i]
-            color = heat_to_color(display_heat)
-            # Retrieve the physical LED index from the sorted DataFrame.
+            color = heat_to_color(heat[i])
+            # Use the physical LED index from the sorted DataFrame.
             physical_index = int(df_sorted.iloc[i]['led_index'])
             strip.setPixelColor(physical_index, Color(*color))
         strip.show()
         time.sleep(interval)
 
-    # Turn off all LEDs when finished.
+    # Turn off all LEDs after the animation.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
