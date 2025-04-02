@@ -113,4 +113,4 @@ def animate_snowflake_paths(csv_file, duration=30, interval=0.05,
 if __name__ == '__main__':
     # Adjust 'coordinates.csv' to your CSV file path if needed.
     animate_snowflake_paths('coordinates.csv', duration=30, interval=0.05,
-                             num_snowflakes=5, speed=0.1, threshold=1.0)
+                             num_snowflakes=50, speed=5, threshold=1.0)
