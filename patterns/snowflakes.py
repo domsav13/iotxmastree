@@ -4,29 +4,28 @@ import math
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
-def animate_snowflakes(csv_file, duration=30, interval=0.05, num_snowflakes=5, speed=0.1, threshold=1.0, debug=False):
+def animate_snowflake_paths(csv_file, duration=30, interval=0.05,
+                            num_snowflakes=5, speed=0.1, threshold=1.0):
     """
-    Animate a snowflake effect on a 3D LED tree.
+    Animate white snowflake paths on a 3D LED tree.
     
-    Snowflake particles (displayed in white) are simulated starting at the top of the tree.
-    They fall downward (with a slight horizontal drift) and "light up" any LED whose position
-    is within a specified threshold distance of the snowflake. When a snowflake falls below the tree,
-    it is respawned at the top.
+    Snowflakes spawn at the top of the tree (LEDs with the highest Z values) and fall downward.
+    As a snowflake passes near an LED (within the specified threshold distance), that LED is lit white.
+    Multiple snowflake paths occur concurrently.
     
     Parameters:
       csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
-      duration (float): Total duration of the animation in seconds.
-      interval (float): Delay between animation frames (in seconds).
-      num_snowflakes (int): Number of snowflake particles to simulate.
-      speed (float): Falling speed of the snowflakes (in coordinate units per second).
-      threshold (float): Maximum distance for a snowflake to affect an LED.
-      debug (bool): If True, print debugging information.
+      duration (float): Total duration of the animation (seconds).
+      interval (float): Delay between frames (seconds).
+      num_snowflakes (int): Number of falling snowflakes (paths) to simulate.
+      speed (float): Falling speed (coordinate units per second).
+      threshold (float): Distance threshold for lighting an LED.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
     LED_COUNT = len(df)
-
+    
     # LED strip configuration.
     LED_PIN        = 18           # GPIO pin (data signal)
     LED_FREQ_HZ    = 800000       # LED signal frequency in hertz
@@ -38,23 +37,20 @@ def animate_snowflakes(csv_file, duration=30, interval=0.05, num_snowflakes=5, s
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                        LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
-
+    
     # Determine tree bounds from the CSV.
     tree_x_min, tree_x_max = df['X'].min(), df['X'].max()
     tree_y_min, tree_y_max = df['Y'].min(), df['Y'].max()
     tree_z_min, tree_z_max = df['Z'].min(), df['Z'].max()
 
     # Initialize snowflake particles.
-    # Each snowflake is a dictionary with its current (x, y, z) position and velocities.
+    # Each snowflake starts at a random (x,y) at the top (z = tree_z_max).
     snowflakes = []
     for _ in range(num_snowflakes):
         snowflake = {
             'x': random.uniform(tree_x_min, tree_x_max),
             'y': random.uniform(tree_y_min, tree_y_max),
-            'z': tree_z_max,  # Start at the top.
-            'vx': random.uniform(-0.02, 0.02),  # Small horizontal drift.
-            'vy': random.uniform(-0.02, 0.02),
-            'vz': -speed  # Falling downward.
+            'z': tree_z_max  # Start at the top.
         }
         snowflakes.append(snowflake)
 
@@ -66,54 +62,43 @@ def animate_snowflakes(csv_file, duration=30, interval=0.05, num_snowflakes=5, s
         dt = current_time - prev_time
         prev_time = current_time
 
-        # Clear all LEDs.
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-
-        # Update snowflake positions.
+        # Update each snowflake's position: drop downward (decrease z).
         for sf in snowflakes:
-            sf['x'] += sf['vx'] * dt
-            sf['y'] += sf['vy'] * dt
-            sf['z'] += sf['vz'] * dt
+            sf['z'] -= speed * dt
+            # Optional: you can add a small horizontal drift if desired.
+            # sf['x'] += random.uniform(-0.005, 0.005) * dt
+            # sf['y'] += random.uniform(-0.005, 0.005) * dt
 
             # Respawn the snowflake at the top if it falls below the tree.
             if sf['z'] < tree_z_min:
                 sf['x'] = random.uniform(tree_x_min, tree_x_max)
                 sf['y'] = random.uniform(tree_y_min, tree_y_max)
                 sf['z'] = tree_z_max
-                sf['vx'] = random.uniform(-0.02, 0.02)
-                sf['vy'] = random.uniform(-0.02, 0.02)
-                sf['vz'] = -speed
 
-        # Check each LED to see if it's close enough to any snowflake.
+        # Clear all LEDs.
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(0, 0, 0))
+
+        # For each LED, light it white if any snowflake is close enough.
         for idx, row in df.iterrows():
             led_x, led_y, led_z = row['X'], row['Y'], row['Z']
-            led_lit = False
             for sf in snowflakes:
                 dx = led_x - sf['x']
                 dy = led_y - sf['y']
                 dz = led_z - sf['z']
                 distance = math.sqrt(dx*dx + dy*dy + dz*dz)
-                if debug and idx == 0:
-                    print(f"LED0 distance to snowflake: {distance:.2f}")
                 if distance <= threshold:
-                    # Light this LED white.
                     strip.setPixelColor(int(row['led_index']), Color(255, 255, 255))
-                    led_lit = True
-                    break  # Only one snowflake needed to light the LED.
-            if not led_lit:
-                # Optional: ensure the LED is off if not lit.
-                strip.setPixelColor(int(row['led_index']), Color(0, 0, 0))
+                    break  # One snowflake is enough to light the LED.
         strip.show()
         time.sleep(interval)
 
-    # Turn off all LEDs after the animation.
+    # Turn off all LEDs when the animation ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
 
 if __name__ == '__main__':
-    # Adjust 'coordinates.csv' to your file path if needed.
-    # For troubleshooting, you can set debug=True and adjust threshold to a higher value.
-    animate_snowflakes('coordinates.csv', duration=30, interval=0.05,
-                         num_snowflakes=5, speed=0.1, threshold=1.0, debug=True)
+    # Replace 'coordinates.csv' with your CSV file path if needed.
+    animate_snowflake_paths('coordinates.csv', duration=30, interval=0.05,
+                             num_snowflakes=5, speed=0.1, threshold=1.0)
