@@ -11,24 +11,26 @@ def heat_to_color(heat):
       - High heat: orange to yellow.
     """
     if heat < 85:
-        # Black to red (in GRB: red is the second value).
+        # Black to red.
         return (0, heat * 3, 0)
     elif heat < 170:
-        # Red to orange: in GRB, (red, green, blue) becomes ((heat-85)*3, 255, 0).
+        # Red to orange.
         return ((heat - 85) * 3, 255, 0)
     else:
-        # Orange to yellow remains the same because both red and green are 255.
+        # Orange to yellow.
         return (255, 255, (heat - 170) * 3)
 
 def animate_fireplace(csv_file, duration=30, interval=0.05, cooling=55, sparking=120):
     """
-    Animate a calm, fireplace-style flame on a 3D LED tree.
+    Animate a calm, fireplace-style flame on a 3D LED tree that appears to shoot upward.
     
     The effect simulates a fire at the bottom of the tree by:
       1. Sorting the LEDs by their Z coordinate.
       2. Using a "heat" array (0–255) that is cooled, diffused upward,
          and occasionally ignited at the bottom.
-      3. Mapping the heat to a fire color palette.
+      3. Inverting the heat values before mapping them to a color, so that
+         the base (with high heat) shows as red and the top (with lower heat)
+         shows as orange to yellow/white.
     
     Parameters:
       csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
@@ -76,9 +78,13 @@ def animate_fireplace(csv_file, duration=30, interval=0.05, cooling=55, sparking
             y = random.randint(0, min(7, LED_COUNT - 1))
             heat[y] = min(255, heat[y] + random.randint(160, 255))
 
-        # 4. Map heat to color and update the LED strip.
+        # 4. Invert the heat value before mapping it to a color.
+        # This means that if the heat is high (at the base), display_heat becomes low,
+        # which maps to red, while at the top the lower heat becomes high display_heat,
+        # mapping to orange/yellow.
         for i in range(LED_COUNT):
-            color = heat_to_color(heat[i])
+            display_heat = 255 - heat[i]
+            color = heat_to_color(display_heat)
             # Retrieve the physical LED index from the sorted DataFrame.
             physical_index = int(df_sorted.iloc[i]['led_index'])
             strip.setPixelColor(physical_index, Color(*color))
