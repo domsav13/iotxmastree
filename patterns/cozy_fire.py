@@ -5,20 +5,19 @@ from rpi_ws281x import PixelStrip, Color
 
 def heat_to_color(heat):
     """
-    Map a heat value (0–255) to an RGB color.
-    This common mapping produces a fire-like palette:
+    Map a heat value (0–255) to an RGB color in GRB order for a fire-like palette:
       - Low heat: black to red,
       - Mid heat: red to orange,
       - High heat: orange to yellow.
     """
     if heat < 85:
-        # Scale from black to red.
-        return (heat * 3, 0, 0)
+        # Black to red (in GRB: red is the second value).
+        return (0, heat * 3, 0)
     elif heat < 170:
-        # Scale from red to orange.
-        return (255, (heat - 85) * 3, 0)
+        # Red to orange: in GRB, (red, green, blue) becomes ((heat-85)*3, 255, 0).
+        return ((heat - 85) * 3, 255, 0)
     else:
-        # Scale from orange to yellow.
+        # Orange to yellow remains the same because both red and green are 255.
         return (255, 255, (heat - 170) * 3)
 
 def animate_fireplace(csv_file, duration=30, interval=0.05, cooling=55, sparking=120):
