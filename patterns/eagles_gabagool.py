@@ -55,8 +55,8 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
         ]
     elif team.lower() == 'italian':
         team_colors = [
-            (140, 0, 69),     # Italian Green GRB
-            (33, 205, 42),    # Italian Red GRB
+            (255, 0, 0),     # Italian Green GRB
+            (0, 255, 0),    # Italian Red GRB
             (255, 255, 255)   # White
         ]
     else:
@@ -91,4 +91,4 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
 if __name__ == '__main__':
     # To test the Eagles palette, use team='eagles'.
     # To test the Italian flag, change team='italian'.
-    animate_spiral_team_colors_RGB('coordinates.csv', duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='eagles')
+    animate_spiral_team_colors_RGB('coordinates.csv', duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='italian')
