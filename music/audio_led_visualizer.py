@@ -1,28 +1,20 @@
+from flask import Flask, send_from_directory, render_template_string
+from threading import Thread
 import time
 import math
 import numpy as np
 import pandas as pd
 import colorsys
+from rpi_ws281x import PixelStrip, Color
 from pydub import AudioSegment
 from pydub.playback import play
-from threading import Thread
-from rpi_ws281x import PixelStrip, Color
 
+# This is our LED animation function that syncs to music.
 def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_scale=10.0):
     """
-    Animate LED colors synced to an MP3 file's frequency spectrum while playing the song in real time.
+    Animate LED colors synced to an MP3 file's frequency spectrum while processing the audio in real time.
 
-    The MP3 file is loaded and processed in real time. For each time interval, a chunk of audio samples
-    corresponding to the elapsed playback time is extracted, and its FFT is computed. The frequency spectrum
-    is divided into bands (one or more per LED), and each LED's brightness is modulated based on its band's amplitude.
-    The LED's color is determined by mapping its index to a hue (producing a gradient effect).
-
-    Parameters:
-      csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
-      mp3_file (str): Path to the MP3 file.
-      chunk_size (int): Number of audio samples per FFT (e.g., 1024).
-      interval (float): Delay (in seconds) between LED update frames.
-      led_scale (float): Scaling factor to convert FFT magnitude to a brightness value (0.0–1.0).
+    This function loads the MP3 file, processes it chunk by chunk using FFT, and updates the LED strip accordingly.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
@@ -46,8 +38,8 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     samples = np.array(song.get_array_of_samples())
     if song.channels > 1:
         samples = samples.reshape((-1, song.channels))
-        samples = samples[:, 0]  # Use the first channel if stereo.
-    # Normalize samples to float32 in range [-1, 1].
+        samples = samples[:, 0]  # Use first channel if stereo.
+    # Normalize samples to float32 in the range [-1, 1].
     samples = samples.astype(np.float32) / (2**15)
     sample_rate = song.frame_rate
     total_samples = len(samples)
@@ -56,43 +48,31 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     fft_bins = chunk_size // 2
     bins_per_led = max(1, fft_bins // LED_COUNT)
 
-    # Function to play the song in a separate thread.
-    def play_song(audio):
-        play(audio)
-
-    # Start the song playback in a background thread.
-    song_thread = Thread(target=play_song, args=(song,))
-    song_thread.start()
-
-    # Record the start time to synchronize audio processing with playback.
+    # Record the start time to sync audio processing.
     start_time = time.time()
 
-    # Process audio in real time.
+    # (Optional) You might also want to play the song locally.
+    # In this example, we let the web client play the song.
     while True:
         elapsed = time.time() - start_time
-        # Calculate the current sample index based on elapsed time.
         current_sample = int(elapsed * sample_rate)
         if current_sample + chunk_size > total_samples:
-            break  # End loop when song samples are exhausted.
+            break  # End when the song is finished.
 
-        # Extract a chunk of audio.
+        # Process a chunk of audio.
         chunk = samples[current_sample: current_sample + chunk_size]
-        # Apply a Hanning window.
         window = np.hanning(len(chunk))
         windowed = chunk * window
-
-        # Compute the FFT and its magnitude.
         fft_result = np.fft.rfft(windowed)
         magnitude = np.abs(fft_result)
 
-        # Update each LED based on its corresponding frequency band.
+        # Update each LED based on its assigned frequency band.
         for led in range(LED_COUNT):
             start_bin = led * bins_per_led
             end_bin = start_bin + bins_per_led
             band_mag = np.mean(magnitude[start_bin:end_bin])
-            # Scale the magnitude to a brightness value (clamped to 1.0).
             brightness = min(band_mag * led_scale, 1.0)
-            # Map LED index to a hue (e.g., from red to blue).
+            # Map LED index to a hue (here, a gradient from red to blue).
             hue = (led / LED_COUNT) * 0.66  # 0.0 = red, 0.66 = blue
             r_float, g_float, b_float = colorsys.hsv_to_rgb(hue, 1, brightness)
             r = int(r_float * 255)
@@ -102,12 +82,44 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
         strip.show()
         time.sleep(interval)
 
-    # Turn off all LEDs after the song ends.
+    # Turn off LEDs after the song finishes.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
-    song_thread.join()
+
+# Define the Flask app.
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    # Simple web page with an audio player.
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>LED Music Sync</title>
+      </head>
+      <body>
+        <h1>LED Music Sync</h1>
+        <audio controls autoplay>
+          <source src="/audio/song.mp3" type="audio/mpeg">
+          Your browser does not support the audio element.
+        </audio>
+        <p>Enjoy the synchronized LED show!</p>
+      </body>
+    </html>
+    """
+    return render_template_string(html)
+
+@app.route('/audio/<path:filename>')
+def audio(filename):
+    # Serve audio files from the "audio" directory.
+    return send_from_directory('audio', filename)
 
 if __name__ == '__main__':
-    # Replace 'coordinates.csv' and 'song.mp3' with your file paths if needed.
-    animate_music_sync('coordinates.csv', 'mariah.mp3', chunk_size=1024, interval=0.05, led_scale=10.0)
+    # Start the LED animation in a separate thread.
+    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/song.mp3', 1024, 0.05, 10.0))
+    led_thread.daemon = True
+    led_thread.start()
+    # Run the Flask server so that clients can play the song over the web.
+    app.run(host='0.0.0.0', port=5000)
