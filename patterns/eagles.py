@@ -16,21 +16,22 @@ def get_eagles_color(t):
     """
     Given a parameter t in [0,1], interpolate through the Eagles palette.
     
-    The palette consists of:
-      - Midnight Green: (0, 76, 84)
-      - Silver:         (165, 172, 175)
+    The palette (in GRB order) consists of:
+      - Midnight Green: (76, 0, 84)
+      - Silver:         (172, 165, 175)
       - Black:          (0, 0, 0)
       - White:          (255, 255, 255)
     
     The gradient is segmented equally.
     """
     palette = [
-        (0, 76, 84),      # Midnight Green
-        (165, 172, 175),  # Silver
-        (0, 0, 0),        # Black
-        (255, 255, 255)   # White
+        (76, 0, 84),       # Midnight Green (GRB)
+        (172, 165, 175),   # Silver (GRB)
+        (0, 0, 0),         # Black
+        (255, 255, 255)    # White
     ]
-    # There are 3 segments.
+    
+    # There are 3 segments between 4 colors.
     if t < 0.33:
         # Interpolate between palette[0] and palette[1]
         t2 = t / 0.33
@@ -44,7 +45,7 @@ def get_eagles_color(t):
 
 def animate_eagles(csv_file, duration=30, interval=0.05, speed=0.2):
     """
-    Animate an LED display using a moving gradient based on Philadelphia Eagles colors.
+    Animate an LED display using a moving gradient based on Philadelphia Eagles colors (GRB).
     
     Each LED's color is computed from a phase value derived from its index and a time-based offset.
     The phase is used to extract a color from the Eagles palette.
@@ -81,7 +82,7 @@ def animate_eagles(csv_file, duration=30, interval=0.05, speed=0.2):
             base_phase = idx / LED_COUNT
             # Add a time component; speed controls the wave motion.
             phase = (base_phase + t * speed) % 1.0
-            # Get the color from our Eagles palette.
+            # Get the color from our Eagles palette (already in GRB order).
             color_tuple = get_eagles_color(phase)
             strip.setPixelColor(int(row['led_index']), Color(*color_tuple))
         strip.show()
