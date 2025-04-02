@@ -5,16 +5,16 @@ from rpi_ws281x import PixelStrip, Color
 
 def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='eagles'):
     """
-    Animate a spiral pattern on a 3D LED tree using discrete team colors in standard RGB.
+    Animate a spiral pattern on a 3D LED tree using discrete team colors.
     
     Each LED’s (x, y, z) coordinate is used to compute a phase:
-      phase = theta + (normalized_z * spiral_factor) + (speed * time)
-    The phase (wrapped into [0, 2π]) is used to select one of the discrete team colors.
+        phase = theta + (normalized_z * spiral_factor) + (speed * time)
+    The phase (wrapped into [0, 2π]) is then used to select one of the discrete team colors.
     
-    Colors are defined in standard RGB order (no swapping).
+    Colors are defined in GRB order (as expected by your LED strip).
     
     Parameters:
-      csv_file (str): CSV file with LED coordinates (columns: X, Y, Z).
+      csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
       duration (float): Animation duration in seconds.
       interval (float): Delay between frame updates (seconds).
       speed (float): Speed multiplier for the time offset.
@@ -44,19 +44,20 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
     z_min = df['Z'].min()
     z_max = df['Z'].max()
     
-    # Define team palettes in standard RGB.
+    # Define team palettes in GRB order.
     if team.lower() == 'eagles':
         team_colors = [
-            (0, 76, 84),      # Midnight Green
-            (165, 172, 175),  # Silver
-            (0, 0, 0),        # Black
-            (255, 255, 255)   # White
+            (76, 0, 84),      # Midnight Green GRB
+            (106, 4, 56),     # Green GRB
+            (96, 96, 98),     # Silver GRB
+            (255, 255, 255),  # White
+            (187, 76, 23)     # Kelly Green GRB
         ]
     elif team.lower() == 'italian':
         team_colors = [
-            (0, 146, 70),     # Italian Green
-            (255, 255, 255),   # White
-            (206, 43, 55)      # Italian Red
+            (140, 0, 69),     # Italian Green GRB
+            (33, 205, 42),    # Italian Red GRB
+            (255, 255, 255)   # White
         ]
     else:
         team_colors = [(0, 255, 0)]
@@ -68,13 +69,13 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
         t = time.time() - start_time
         for idx, row in df.iterrows():
             x, y, z = row['X'], row['Y'], row['Z']
-            # Compute polar angle relative to the tree center.
+            # Compute polar angle (theta) relative to the tree center.
             theta = math.atan2(y - y_center, x - x_center)
             # Normalize z (height) to [0, 1].
             norm_z = (z - z_min) / (z_max - z_min) if (z_max - z_min) else 0
             # Compute the spiral phase.
             phase = theta + norm_z * spiral_factor + speed * t
-            phase = phase % (2 * math.pi)
+            phase %= (2 * math.pi)
             # Map phase into one of the discrete team colors.
             color_index = int((phase / (2 * math.pi)) * num_colors) % num_colors
             color = team_colors[color_index]
@@ -88,5 +89,6 @@ def animate_spiral_team_colors_RGB(csv_file, duration=30, interval=0.05, speed=2
     strip.show()
 
 if __name__ == '__main__':
-    # Test with the Eagles palette. To test Italian flag, change team='italian'
+    # To test the Eagles palette, use team='eagles'.
+    # To test the Italian flag, change team='italian'.
     animate_spiral_team_colors_RGB('coordinates.csv', duration=30, interval=0.05, speed=2.0, spiral_factor=4*math.pi, team='eagles')
