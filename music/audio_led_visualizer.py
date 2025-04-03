@@ -8,19 +8,20 @@ import colorsys
 from rpi_ws281x import PixelStrip, Color
 from pydub import AudioSegment
 from pydub.playback import play
+from io import BytesIO
 
-# This is our LED animation function that syncs to music.
 def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_scale=10.0):
     """
-    Animate LED colors synced to an MP3 file's frequency spectrum while processing the audio in real time.
-
-    This function loads the MP3 file, processes it chunk by chunk using FFT, and updates the LED strip accordingly.
+    Animate LED colors synced to an MP3 file's frequency spectrum while playing the song.
+    
+    This function loads the MP3 file entirely into memory to allow proper seeking.
+    It processes the audio in chunks using FFT and updates the LED strip accordingly.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
     LED_COUNT = len(df)
-
+    
     # LED strip configuration.
     LED_PIN        = 18           # GPIO pin (data signal)
     LED_FREQ_HZ    = 800000       # LED signal frequency in hertz
@@ -32,8 +33,11 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
                        LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # Load the MP3 file.
-    song = AudioSegment.from_mp3(mp3_file)
+    # Load the MP3 file entirely into memory using BytesIO.
+    with open(mp3_file, 'rb') as f:
+        mp3_data = f.read()
+    song = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
+    
     # Convert to a numpy array of samples.
     samples = np.array(song.get_array_of_samples())
     if song.channels > 1:
@@ -47,33 +51,37 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     # Determine FFT bins per LED.
     fft_bins = chunk_size // 2
     bins_per_led = max(1, fft_bins // LED_COUNT)
-
+    
     # Record the start time to sync audio processing.
     start_time = time.time()
-
-    # (Optional) You might also want to play the song locally.
-    # In this example, we let the web client play the song.
+    
+    # (Optional) Play the song locally using pydub in a non-blocking way.
+    # You can comment this out if you rely on web playback.
+    song_thread = Thread(target=play, args=(song,))
+    song_thread.daemon = True
+    song_thread.start()
+    
     while True:
         elapsed = time.time() - start_time
         current_sample = int(elapsed * sample_rate)
         if current_sample + chunk_size > total_samples:
-            break  # End when the song is finished.
-
+            break  # End loop when the song samples are exhausted.
+        
         # Process a chunk of audio.
         chunk = samples[current_sample: current_sample + chunk_size]
         window = np.hanning(len(chunk))
         windowed = chunk * window
         fft_result = np.fft.rfft(windowed)
         magnitude = np.abs(fft_result)
-
-        # Update each LED based on its assigned frequency band.
+        
+        # For each LED, compute its corresponding frequency band amplitude.
         for led in range(LED_COUNT):
             start_bin = led * bins_per_led
             end_bin = start_bin + bins_per_led
             band_mag = np.mean(magnitude[start_bin:end_bin])
             brightness = min(band_mag * led_scale, 1.0)
-            # Map LED index to a hue (here, a gradient from red to blue).
-            hue = (led / LED_COUNT) * 0.66  # 0.0 = red, 0.66 = blue
+            # Map LED index to a hue (gradient from red to blue, for example).
+            hue = (led / LED_COUNT) * 0.66  # 0.0 = red, 0.66 = blue.
             r_float, g_float, b_float = colorsys.hsv_to_rgb(hue, 1, brightness)
             r = int(r_float * 255)
             g = int(g_float * 255)
@@ -81,8 +89,8 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
             strip.setPixelColor(led, Color(r, g, b))
         strip.show()
         time.sleep(interval)
-
-    # Turn off LEDs after the song finishes.
+    
+    # Turn off all LEDs after the song finishes.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
@@ -118,8 +126,9 @@ def audio(filename):
 
 if __name__ == '__main__':
     # Start the LED animation in a separate thread.
-    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/song.mp3', 1024, 0.05, 10.0))
+    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/mariah.mp3', 1024, 0.05, 10.0))
     led_thread.daemon = True
     led_thread.start()
+    
     # Run the Flask server so that clients can play the song over the web.
     app.run(host='0.0.0.0', port=5000)
