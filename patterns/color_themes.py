@@ -34,7 +34,7 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
       interval (float): Delay between frame updates (seconds).
       speed (float): Speed multiplier for the time offset.
       spiral_factor (float): Amount of twist (in radians) over the tree’s height.
-      team (str): Color theme key (e.g. 'eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry').
+      team (str): Color theme key (e.g. 'eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry', 'aussie').
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
@@ -48,7 +48,6 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     LED_BRIGHTNESS = 125
     LED_INVERT     = False
     LED_CHANNEL    = 0
-
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                        LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
@@ -100,6 +99,14 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         (182, 255, 193), # Light Pink (from standard RGB (255,182,193))
         (105, 255, 180)  # Deep Pink (from standard RGB (255,105,180))
     ]
+    aussie_colors = [
+        (0, 128, 128),   # Purple (from standard RGB (128,0,128))
+        (0, 75, 130),    # Dark Purple (from standard RGB (75,0,130))
+        (51, 102, 153),  # Medium Purple (from standard RGB (102,51,153))
+        (165, 255, 0),   # Orange (from standard RGB (255,165,0))
+        (255, 255, 0),   # Yellow
+        (0, 0, 255)      # Blue
+    ]
     
     color_themes = {
         'eagles': eagles_colors,
@@ -108,7 +115,8 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         'christmas': christmas_colors,
         'rustic': rustic_colors,
         'spartans': spartans_colors,
-        'cherry': cherry_colors
+        'cherry': cherry_colors,
+        'aussie': aussie_colors
     }
     
     team = team.lower()
@@ -120,10 +128,14 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         t = time.time() - start_time
         for idx, row in df.iterrows():
             x, y, z = row['X'], row['Y'], row['Z']
+            # Compute polar angle (theta) relative to tree center.
             theta = math.atan2(y - y_center, x - x_center)
+            # Normalize z (height) to [0, 1].
             norm_z = (z - z_min) / (z_max - z_min) if (z_max - z_min) else 0
+            # Compute the spiral phase.
             phase = theta + norm_z * spiral_factor + speed * t
             phase %= (2 * math.pi)
+            # Map phase into one of the discrete colors in the chosen palette.
             color_index = int((phase / (2 * math.pi)) * num_colors) % num_colors
             base_color = team_colors[color_index]
             corrected_color = apply_gamma(base_color, gamma=2.2)
@@ -136,7 +148,7 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     strip.show()
 
 if __name__ == '__main__':
-    themes = ['eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry']
+    themes = ['eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry', 'aussie']
     print("Available color themes:", ", ".join(themes))
     chosen_theme = input("Which theme would you like to use? ").strip().lower()
     if chosen_theme not in themes:
