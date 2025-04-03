@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+import os
+# Explicitly set the ffmpeg binary path (adjust if necessary)
+os.environ["FFMPEG_BINARY"] = "/usr/bin/ffmpeg"
+
 from flask import Flask, send_from_directory, render_template_string
 from threading import Thread
 import time
@@ -14,8 +19,7 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     """
     Animate LED colors synced to an MP3 file's frequency spectrum while playing the song.
     
-    This function loads the MP3 file entirely into memory to allow proper seeking.
-    It processes the audio in chunks using FFT and updates the LED strip accordingly.
+    The MP3 file is loaded entirely into memory using BytesIO so that ffmpeg can seek properly.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
@@ -25,15 +29,15 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     # LED strip configuration.
     LED_PIN        = 18           # GPIO pin (data signal)
     LED_FREQ_HZ    = 800000       # LED signal frequency in hertz
-    LED_DMA        = 10           # DMA channel to use for generating signal
+    LED_DMA        = 10           # DMA channel for signal generation
     LED_BRIGHTNESS = 125          # Brightness (0 to 255)
     LED_INVERT     = False        # True to invert the signal (if needed)
     LED_CHANNEL    = 0            # Set to 0 for GPIO 18
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                        LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
-
-    # Load the MP3 file entirely into memory using BytesIO.
+    
+    # Load the MP3 file entirely into memory.
     with open(mp3_file, 'rb') as f:
         mp3_data = f.read()
     song = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
@@ -43,8 +47,7 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     if song.channels > 1:
         samples = samples.reshape((-1, song.channels))
         samples = samples[:, 0]  # Use first channel if stereo.
-    # Normalize samples to float32 in the range [-1, 1].
-    samples = samples.astype(np.float32) / (2**15)
+    samples = samples.astype(np.float32) / (2**15)  # Normalize to [-1,1]
     sample_rate = song.frame_rate
     total_samples = len(samples)
     
@@ -52,11 +55,10 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
     fft_bins = chunk_size // 2
     bins_per_led = max(1, fft_bins // LED_COUNT)
     
-    # Record the start time to sync audio processing.
+    # Record start time for synchronization.
     start_time = time.time()
     
-    # (Optional) Play the song locally using pydub in a non-blocking way.
-    # You can comment this out if you rely on web playback.
+    # Optionally, play the song locally in a background thread.
     song_thread = Thread(target=play, args=(song,))
     song_thread.daemon = True
     song_thread.start()
@@ -65,23 +67,23 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
         elapsed = time.time() - start_time
         current_sample = int(elapsed * sample_rate)
         if current_sample + chunk_size > total_samples:
-            break  # End loop when the song samples are exhausted.
+            break  # End when song is finished.
         
-        # Process a chunk of audio.
+        # Process audio chunk.
         chunk = samples[current_sample: current_sample + chunk_size]
         window = np.hanning(len(chunk))
         windowed = chunk * window
         fft_result = np.fft.rfft(windowed)
         magnitude = np.abs(fft_result)
         
-        # For each LED, compute its corresponding frequency band amplitude.
+        # Update LEDs: map frequency bands to LED brightness.
         for led in range(LED_COUNT):
             start_bin = led * bins_per_led
             end_bin = start_bin + bins_per_led
             band_mag = np.mean(magnitude[start_bin:end_bin])
             brightness = min(band_mag * led_scale, 1.0)
-            # Map LED index to a hue (gradient from red to blue, for example).
-            hue = (led / LED_COUNT) * 0.66  # 0.0 = red, 0.66 = blue.
+            # Map LED index to a hue (creating a red-to-blue gradient).
+            hue = (led / LED_COUNT) * 0.66  # 0.0 = red, 0.66 = blue
             r_float, g_float, b_float = colorsys.hsv_to_rgb(hue, 1, brightness)
             r = int(r_float * 255)
             g = int(g_float * 255)
@@ -90,7 +92,7 @@ def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_s
         strip.show()
         time.sleep(interval)
     
-    # Turn off all LEDs after the song finishes.
+    # Turn off LEDs after the song ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
