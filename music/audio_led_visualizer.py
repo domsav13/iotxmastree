@@ -132,7 +132,7 @@ def audio(filename):
 
 if __name__ == '__main__':
     # Start the LED animation in a separate thread.
-    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/song.mp3', 1024, 0.05, 10.0))
+    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/mariah.mp3', 1024, 0.05, 10.0))
     led_thread.daemon = True
     led_thread.start()
     
