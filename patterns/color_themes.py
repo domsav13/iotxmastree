@@ -34,7 +34,8 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
       interval (float): Delay between frame updates (seconds).
       speed (float): Speed multiplier for the time offset.
       spiral_factor (float): Amount of twist (in radians) over the tree’s height.
-      team (str): Color theme key (e.g. 'eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry', 'aussie').
+      team (str): Color theme key (e.g. 'eagles', 'italian', 'gwu', 'christmas',
+                  'rustic', 'spartans', 'cherry', 'aussie', 'northern', 'sixers').
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
@@ -61,16 +62,16 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     
     # Define color palettes in GRB order.
     eagles_colors = [
-        (76, 0, 84),    # Midnight Green
-        (106, 4, 56),   # Green
-        (96, 96, 98),   # Silver
-        (255, 255, 255),# White
-        (187, 76, 23)   # Kelly Green
+        (76, 0, 84),     # Midnight Green
+        (106, 4, 56),    # Green
+        (96, 96, 98),    # Silver
+        (255, 255, 255), # White
+        (187, 76, 23)    # Kelly Green
     ]
     italian_colors = [
-        (140, 0, 69),   # Green
-        (33, 205, 42),  # Red
-        (255, 255, 255) # White
+        (140, 0, 69),    # Green
+        (33, 205, 42),   # Red
+        (255, 255, 255)  # White
     ]
     gwu_colors = [
         (57, 0, 77),     # Pantone 302
@@ -91,23 +92,44 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     ]
     spartans_colors = [
         (255, 255, 255), # White
-        (144, 30, 255),  # rgb(30,144,255) -> GRB: (144,30,255)
-        (215, 255, 0)    # rgb(255,215,0) -> GRB: (215,255,0)
+        (144, 30, 255),  # rgb(30,144,255) => GRB
+        (215, 255, 0)    # rgb(255,215,0) => GRB
     ]
     cherry_colors = [
         (255, 255, 255), # White
-        (182, 255, 193), # Light Pink (from standard RGB (255,182,193))
-        (105, 255, 180)  # Deep Pink (from standard RGB (255,105,180))
+        (182, 255, 193), # Light Pink
+        (105, 255, 180)  # Deep Pink
     ]
     aussie_colors = [
-        (0, 128, 128),   # Purple (from standard RGB (128,0,128))
-        (0, 75, 130),    # Dark Purple (from standard RGB (75,0,130))
-        (51, 102, 153),  # Medium Purple (from standard RGB (102,51,153))
-        (165, 255, 0),   # Orange (from standard RGB (255,165,0))
+        (0, 128, 128),   # Purple (RGB(128,0,128) => GRB(0,128,128))
+        (0, 75, 130),    # Dark Purple (RGB(75,0,130) => GRB(0,75,130))
+        (51, 102, 153),  # Medium Purple (RGB(102,51,153) => GRB(51,102,153))
+        (165, 255, 0),   # Orange (RGB(255,165,0) => GRB(165,255,0))
         (255, 255, 0),   # Yellow
         (0, 0, 255)      # Blue
     ]
+    northern_colors = [
+        (255, 0, 120),   # Aurora Green
+        (50, 0, 255),    # Arctic Blue
+        (128, 0, 255),   # Electric Purple
+        (180, 0, 80),    # Soft Teal
+        (0, 0, 180),     # Midnight Sky
+        (100, 0, 200),   # Fading Violet
+        (80, 0, 200)     # Plasma Pink
+    ]
+    # Sixers
+    #  Blue:   #006bb6 => RGB(0,107,182) => GRB(107,0,182)
+    #  Red:    #ed174c => RGB(237,23,76) => GRB(23,237,76)
+    #  Navy:   #002b5c => RGB(0,43,92)   => GRB(43,0,92)
+    #  Silver: #c4ced4 => RGB(196,206,212) => GRB(206,196,212)
+    sixers_colors = [
+        (107, 0, 182),   # Blue
+        (23, 237, 76),   # Red
+        (43, 0, 92),     # Navy
+        (206, 196, 212)  # Silver
+    ]
     
+    # Dictionary of color themes.
     color_themes = {
         'eagles': eagles_colors,
         'italian': italian_colors,
@@ -116,7 +138,9 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         'rustic': rustic_colors,
         'spartans': spartans_colors,
         'cherry': cherry_colors,
-        'aussie': aussie_colors
+        'aussie': aussie_colors,
+        'northern': northern_colors,
+        'sixers': sixers_colors
     }
     
     team = team.lower()
@@ -143,12 +167,16 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         strip.show()
         time.sleep(interval)
     
+    # Turn off all LEDs when the animation ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
 
 if __name__ == '__main__':
-    themes = ['eagles', 'italian', 'gwu', 'christmas', 'rustic', 'spartans', 'cherry', 'aussie']
+    themes = [
+        'eagles', 'italian', 'gwu', 'christmas', 'rustic',
+        'spartans', 'cherry', 'aussie', 'northern', 'sixers'
+    ]
     print("Available color themes:", ", ".join(themes))
     chosen_theme = input("Which theme would you like to use? ").strip().lower()
     if chosen_theme not in themes:
