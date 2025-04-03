@@ -22,9 +22,9 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     
     Each LED’s (x, y, z) coordinate is used to compute a phase:
         phase = theta + (normalized_z * spiral_factor) + (speed * time)
-    The phase (wrapped into [0, 2π]) is then used to select one of the discrete palette colors.
+    The phase is then used to select one of the discrete palette colors.
     
-    Colors are defined in GRB order (as expected by your LED strip). Gamma correction
+    Colors are defined in GRB order (as expected by the LED strip). Gamma correction
     is applied so that when brightness is reduced (LED_BRIGHTNESS < 255) the perceived colors
     match the intended values.
     
@@ -34,15 +34,12 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
       interval (float): Delay between frame updates (seconds).
       speed (float): Speed multiplier for the time offset.
       spiral_factor (float): Amount of twist (in radians) over the tree’s height.
-      team (str): Color theme key (e.g. 'eagles', 'italian', 'gwu', 'christmas',
-                  'rustic', 'spartans', 'cherry', 'aussie', 'northern', 'sixers').
+      team (str): Color theme key
     """
-    # Load LED coordinates.
     df = pd.read_csv(csv_file)
     df['led_index'] = df.index
     LED_COUNT = len(df)
     
-    # LED strip configuration.
     LED_PIN        = 18
     LED_FREQ_HZ    = 800000
     LED_DMA        = 10
@@ -60,7 +57,7 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
     z_min = df['Z'].min()
     z_max = df['Z'].max()
     
-    # Define color palettes in GRB order.
+    # Color palettes in GRB order
     eagles_colors = [
         (76, 0, 84),     # Midnight Green
         (106, 4, 56),    # Green
@@ -117,11 +114,6 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
         (100, 0, 200),   # Fading Violet
         (80, 0, 200)     # Plasma Pink
     ]
-    # Sixers
-    #  Blue:   #006bb6 => RGB(0,107,182) => GRB(107,0,182)
-    #  Red:    #ed174c => RGB(237,23,76) => GRB(23,237,76)
-    #  Navy:   #002b5c => RGB(0,43,92)   => GRB(43,0,92)
-    #  Silver: #c4ced4 => RGB(196,206,212) => GRB(206,196,212)
     sixers_colors = [
         (107, 0, 182),   # Blue
         (23, 237, 76),   # Red
