@@ -12,14 +12,14 @@ from pydub import AudioSegment
 from pydub.playback import play
 from io import BytesIO
 
-# Optional: Explicitly set the ffmpeg binary path if needed.
+# Optional: If necessary, explicitly set the ffmpeg binary path.
 # os.environ["FFMPEG_BINARY"] = "/usr/bin/ffmpeg"
 
-def animate_music_sync(csv_file, wav_file, chunk_size=1024, interval=0.05, led_scale=10.0):
+def animate_music_sync(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_scale=10.0):
     """
-    Animate LED colors synced to a WAV file's frequency spectrum while playing the song.
+    Animate LED colors synced to an MP3 file's frequency spectrum while playing the song.
     
-    The WAV file is loaded entirely into memory via BytesIO to ensure proper seeking.
+    The MP3 file is loaded entirely into memory via BytesIO so that ffmpeg can seek properly.
     """
     # Load LED coordinates.
     df = pd.read_csv(csv_file)
@@ -27,20 +27,24 @@ def animate_music_sync(csv_file, wav_file, chunk_size=1024, interval=0.05, led_s
     LED_COUNT = len(df)
     
     # LED strip configuration.
-    LED_PIN        = 18           # GPIO pin (data signal)
-    LED_FREQ_HZ    = 800000       # LED signal frequency in hertz
-    LED_DMA        = 10           # DMA channel for signal generation
-    LED_BRIGHTNESS = 125          # Brightness (0 to 255)
-    LED_INVERT     = False        # Invert signal if needed
-    LED_CHANNEL    = 0            # Set to 0 for GPIO 18
+    LED_PIN        = 18            # GPIO pin (data signal)
+    LED_FREQ_HZ    = 800000        # LED signal frequency in hertz
+    LED_DMA        = 10            # DMA channel for signal generation
+    LED_BRIGHTNESS = 125           # Brightness (0 to 255)
+    LED_INVERT     = False         # Invert signal if needed
+    LED_CHANNEL    = 0             # Set to 0 for GPIO 18
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                        LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
     
-    # Load the WAV file entirely into memory.
-    with open(wav_file, 'rb') as f:
-        wav_data = f.read()
-    song = AudioSegment.from_file(BytesIO(wav_data), format="wav")
+    # Load the MP3 file entirely into memory.
+    with open(mp3_file, 'rb') as f:
+        mp3_data = f.read()
+    try:
+        song = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
+    except Exception as e:
+        print("Error loading MP3 file:", e)
+        return
     
     # Convert to a numpy array of samples.
     samples = np.array(song.get_array_of_samples())
@@ -55,10 +59,10 @@ def animate_music_sync(csv_file, wav_file, chunk_size=1024, interval=0.05, led_s
     fft_bins = chunk_size // 2
     bins_per_led = max(1, fft_bins // LED_COUNT)
     
-    # Record the start time for synchronization.
+    # Record start time for synchronization.
     start_time = time.time()
     
-    # Start playing the song in a background thread.
+    # Optionally, play the song locally in a background thread.
     song_thread = Thread(target=play, args=(song,))
     song_thread.daemon = True
     song_thread.start()
@@ -112,7 +116,7 @@ def index():
       <body>
         <h1>LED Music Sync</h1>
         <audio controls autoplay>
-          <source src="/audio/song.wav" type="audio/wav">
+          <source src="/audio/song.mp3" type="audio/mpeg">
           Your browser does not support the audio element.
         </audio>
         <p>Enjoy the synchronized LED show!</p>
@@ -128,7 +132,7 @@ def audio(filename):
 
 if __name__ == '__main__':
     # Start the LED animation in a separate thread.
-    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/mariah.wav', 1024, 0.05, 10.0))
+    led_thread = Thread(target=animate_music_sync, args=('coordinates.csv', 'audio/song.mp3', 1024, 0.05, 10.0))
     led_thread.daemon = True
     led_thread.start()
     
