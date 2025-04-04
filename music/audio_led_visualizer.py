@@ -15,19 +15,26 @@ led_thread = None
 
 def animate_music_sync_rich(csv_file, mp3_file, chunk_size=1024, interval=0.05, led_scale=10.0, global_scale=3.0):
     """
-    Enhanced LED animation synchronized with music using both amplitude and frequency data.
-    
-    - The overall RMS amplitude of each audio chunk is computed and used to boost the brightness,
-      so louder parts of the song will cause a strong “pulse” effect.
-    - The FFT is calculated on each chunk to extract frequency data.
-    - The dominant frequency is used to derive a hue offset so that the color changes dynamically.
-    - Each LED’s base hue (based on its position) is combined with this offset,
-      and its brightness is a nonlinear blend of the frequency band magnitude and overall amplitude.
+    Enhanced LED animation synchronized with music using both amplitude and refined frequency data.
+
+    Modifications include:
+    - A fixed LED_COUNT so that all LEDs on the tree are used.
+    - Logarithmic frequency binning to better reflect human hearing.
+    - Smoothing of brightness for a more fluid "bounce" effect.
+    - Hue adjustment that combines a global dominant frequency offset with a local brightness boost.
     """
-    # Load LED coordinates.
-    df = pd.read_csv(csv_file)
-    df['led_index'] = df.index
-    LED_COUNT = len(df)
+    # Define total number of LEDs on your tree.
+    TOTAL_LED_COUNT = 150  # Adjust this to match your hardware setup.
+    LED_COUNT = TOTAL_LED_COUNT
+
+    # Optionally try to load LED coordinates from CSV for ordering.
+    # If the CSV has fewer entries than TOTAL_LED_COUNT, a warning is printed and defaults are used.
+    try:
+        df = pd.read_csv(csv_file)
+        if len(df) < TOTAL_LED_COUNT:
+            print("Warning: CSV file contains fewer rows than total LED count. Using default positions for missing LEDs.")
+    except Exception as e:
+        print("Could not load CSV file, using default LED count.")
     
     # LED strip configuration.
     LED_PIN        = 18
@@ -57,9 +64,17 @@ def animate_music_sync_rich(csv_file, mp3_file, chunk_size=1024, interval=0.05, 
     sample_rate = song.frame_rate
     total_samples = len(samples)
     
-    # FFT parameters.
-    fft_bins = chunk_size // 2
-    bins_per_led = max(1, fft_bins // LED_COUNT)
+    # Pre-calculate FFT frequency bins.
+    frequencies = np.fft.rfftfreq(chunk_size, d=1.0/sample_rate)
+    
+    # Compute logarithmically spaced frequency boundaries (from 20 Hz to Nyquist).
+    f_min = 20
+    f_max = sample_rate / 2.0
+    freq_boundaries = np.logspace(np.log10(f_min), np.log10(f_max), LED_COUNT + 1)
+    
+    # Prepare smoothing state for each LED.
+    prev_brightness = np.zeros(LED_COUNT)
+    smoothing_factor = 0.3  # Lower values mean faster response (more bounce), higher values add persistence.
     
     start_time = time.time()
     
@@ -79,24 +94,35 @@ def animate_music_sync_rich(csv_file, mp3_file, chunk_size=1024, interval=0.05, 
         fft_result = np.fft.rfft(windowed)
         magnitude = np.abs(fft_result)
         
-        # Derive a global hue offset from the dominant frequency.
+        # Derive a global hue offset from the dominant frequency in the chunk.
         dominant_idx = np.argmax(magnitude)
         dominant_norm = dominant_idx / (len(magnitude) - 1)  # Normalized value between 0 and 1.
         hue_offset = dominant_norm * 0.66  # Scale to a hue range (red to blue).
         
         # Update each LED.
         for led in range(LED_COUNT):
-            start_bin = led * bins_per_led
-            end_bin = start_bin + bins_per_led
-            band_mag = np.mean(magnitude[start_bin:end_bin])
+            # Determine frequency band for this LED using logarithmic boundaries.
+            lower_bound = freq_boundaries[led]
+            upper_bound = freq_boundaries[led+1]
+            # Find FFT bin indices in this frequency band.
+            indices = np.where((frequencies >= lower_bound) & (frequencies < upper_bound))[0]
+            if len(indices) > 0:
+                band_mag = np.mean(magnitude[indices])
+            else:
+                band_mag = 0
             
-            # Blend the local frequency magnitude and overall amplitude.
-            # The tanh mapping provides a nonlinear scaling for more dramatic response.
+            # Blend local frequency magnitude and overall amplitude.
             brightness_val = np.clip(np.tanh((band_mag * led_scale) + (rms * global_scale)), 0, 1)
             
-            # Calculate a base hue from the LED's position and add the dynamic offset.
+            # Smooth the brightness for a more fluid effect.
+            brightness_val = (smoothing_factor * prev_brightness[led] + 
+                              (1 - smoothing_factor) * brightness_val)
+            prev_brightness[led] = brightness_val
+            
+            # Calculate a base hue from the LED's index.
             base_hue = (led / LED_COUNT) * 0.66
-            hue = (base_hue + hue_offset) % 1.0
+            # Add dynamic hue offset and a slight boost from the brightness.
+            hue = (base_hue + hue_offset + 0.1 * brightness_val) % 1.0
             
             # Convert HSV to RGB.
             r_float, g_float, b_float = colorsys.hsv_to_rgb(hue, 1, brightness_val)
