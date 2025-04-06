@@ -99,4 +99,4 @@ def animate_random_planes(csv_file, duration=30, interval=0.01, plane_speed=50.0
     strip.show()
 
 if __name__ == '__main__':
-    animate_random_planes('coordinates.csv', duration=30, interval=0.01, plane_speed=50.0, thickness_factor=0.1)
+    animate_random_planes('coordinates.csv', duration=30, interval=0.01, plane_speed=25, thickness_factor=0.5)
