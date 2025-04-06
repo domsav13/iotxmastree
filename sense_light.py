@@ -7,19 +7,10 @@ from rpi_ws281x import PixelStrip, Color
 # ====================================================
 # BH1750 Sensor Setup (Ambient Light)
 # ====================================================
-# Before running this code:
-# 1. Enable I²C on your Raspberry Pi:
-#      sudo raspi-config
-#   Go to Interfacing Options → I²C → Enable, then reboot.
-#
-# 2. Connect your BH1750 sensor as follows:
 #      - SDA (Data)  → GPIO2 (physical pin 3)
 #      - SCL (Clock) → GPIO3 (physical pin 5)
 #      - VCC         → 3.3V (or 5V, depending on your sensor specs)
 #      - GND         → Ground (GND)
-#
-# 3. Verify the sensor is detected with:
-#      sudo i2cdetect -y 1
 
 BH1750_ADDR = 0x23       # Default I²C address for BH1750
 BH1750_CMD  = 0x10       # Continuous H-resolution mode command
