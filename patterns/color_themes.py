@@ -3,7 +3,7 @@ import math
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 
-def apply_gamma(color, gamma=2.2):
+def apply_gamma(color, gamma=0.5):
     """
     Apply gamma correction to an (R, G, B) tuple.
     The input values are assumed to be in the 0–255 range.
@@ -154,7 +154,7 @@ def animate_spiral_team_colors(csv_file, duration=30, interval=0.05,
             # Map phase into one of the discrete colors in the chosen palette.
             color_index = int((phase / (2 * math.pi)) * num_colors) % num_colors
             base_color = team_colors[color_index]
-            corrected_color = apply_gamma(base_color, gamma=2.2)
+            corrected_color = apply_gamma(base_color, gamma=0.5)
             strip.setPixelColor(int(row['led_index']), Color(*corrected_color))
         strip.show()
         time.sleep(interval)
@@ -175,4 +175,4 @@ if __name__ == '__main__':
         print(f"Theme '{chosen_theme}' not recognized. Defaulting to 'gwu'.")
         chosen_theme = 'gwu'
     animate_spiral_team_colors('coordinates.csv', duration=30, interval=0.05,
-                               speed=2.0, spiral_factor=4*math.pi, team=chosen_theme)
+                               speed=1.5, spiral_factor=4*math.pi, team=chosen_theme)
