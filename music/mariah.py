@@ -11,7 +11,7 @@ from threading import Thread
 # ====================================================
 # Hyperparameter: Latency Offset (in seconds)
 # Adjust this value to compensate for any delay between Flask and the LED tree.
-LATENCY_OFFSET = 0.5
+LATENCY_OFFSET = -0.5
 
 # ====================================================
 # LED Tree Configuration
