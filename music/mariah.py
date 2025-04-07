@@ -81,7 +81,7 @@ low_brightness_factor  = 0.2   # Dim during Intro (before buildStart)
 max_brightness_factor  = 1.0   # Full brightness
 post_flash_brightness  = 0.3   # Brightness immediately after LastIntroFlash
 
-# Fast spiral speed for BeatDrops phase.
+# Fast spiral speed (offset increment per update) for BeatDrops phase.
 fast_spiral_speed = 0.2
 
 # ====================================================
@@ -130,28 +130,24 @@ def scale_color(color, factor):
     return Color(red, green, blue)
 
 # ====================================================
-# New Effect: Gradual Bottom-Up Lighting with Twinkle
+# New Effect: Gradual Bottom-Up Lighting with White and Pink Twinkle
 # ====================================================
 def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
     """
-    Gradually lights up the tree from the bottom up.
-    Based on the Z-coordinate of each LED, a fraction of the tree is lit.
-    LEDs with lower normalized Z values light up first.
-    A random twinkle effect is applied (random brightness modulation).
-    By flash1_time, the entire tree is lit.
+    Gradually lights up the tree from the bottom up using a mix of white and pink.
+    Each LED's Z-coordinate (normalized) is compared to the fill fraction.
+    If the LED's normalized Z is below the fraction, it is lit using either white or pink
+    (chosen at random) with a slight twinkle effect. By flash1_time, the entire tree is lit.
     """
-    # Determine the fraction of the tree to light up.
     fraction = min(adjusted_elapsed / flash1_time, 1.0)
     for i in range(LED_COUNT):
-        # Get the Z coordinate for LED i (assumes row order corresponds to LED index).
         z = df.iloc[i]["Z"]
-        # Normalize the Z coordinate.
         norm_z = (z - min_z) / (max_z - min_z)
-        # If the normalized Z is below the fraction, light up the LED with twinkle.
         if norm_z <= fraction:
-            # Twinkle factor varies randomly between 0.8 and 1.0.
+            # Choose randomly between white and pink.
+            chosen_color = random.choice([white_color, pink_color])
             twinkle = random.uniform(0.8, 1.0)
-            color = scale_color(white_color, twinkle)
+            color = scale_color(chosen_color, twinkle)
         else:
             color = Color(0, 0, 0)
         strip.setPixelColor(i, color)
@@ -166,7 +162,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.75
+    fade_duration = 0.6  # Updated flash fade duration as per your reference.
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -255,8 +251,8 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
 def run_led_show():
     """
     Runs the LED synchronization loop.
-      • From Intro until Flash1: the tree gradually lights up from the bottom with twinkle.
-      • From Flash1 until LastIntroFlash: the initial spiral effect (slow spiral) runs.
+      • From Intro until Flash1: the tree gradually lights up from the bottom with a twinkling mix of white and pink.
+      • From Flash1 until LastIntroFlash: the initial slow spiral effect runs.
       • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
         brightness ramps from the dim value (post_flash_brightness) to full brightness.
       • From PianoStarts until BeatDrops: independent fast pulse effect.
@@ -283,17 +279,17 @@ def run_led_show():
                 if "Flash" in label:
                     flash_all()
                 elif "buildStart" in label:
-                    pass  # buildStart could trigger a ramp if needed.
+                    pass  # buildStart triggers brightness ramp if needed.
                 elif "PianoStarts" in label:
                     pulse_start_time = current_time
                 triggered_events.add(label)
 
         # Effect Branches:
         if adjusted_elapsed < Flash1_time:
-            # From Intro to Flash1: gradually light up from the bottom with twinkle.
+            # From Intro to Flash1: gradually light up from the bottom with twinkle using white and pink.
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
         elif adjusted_elapsed < PianoStarts_time:
-            # From Flash1 until PianoStarts: run the initial (slow) spiral effect.
+            # From Flash1 until PianoStarts: run the initial slow spiral effect.
             brightness_factor = max_brightness_factor
             spiral_speed = 0.05
             update_slow_spiral(spiral_offset, brightness_factor)
@@ -306,9 +302,8 @@ def run_led_show():
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
         elif adjusted_elapsed < allI_time:
-            # From BeatDrops until "All I...": fast spiral effect.
+            # From BeatDrops until "All I...", run fast spiral effect.
             brightness_factor = max_brightness_factor
-            # Check for back vocal intervals to enable accent mode.
             if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or
                 (adjusted_elapsed >= 76.841043 and adjusted_elapsed < 82.180078)):
                 accent = True
@@ -321,7 +316,7 @@ def run_led_show():
 
         time.sleep(0.05)
 
-    # Turn off LEDs when finished.
+    # Turn off LEDs when the show ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
