@@ -78,7 +78,7 @@ low_brightness_factor  = 0.2   # Dim during Intro (before buildStart)
 max_brightness_factor  = 1.0   # Full brightness
 post_flash_brightness  = 0.3   # Brightness immediately after LastIntroFlash
 
-# Fast spiral speed for BeatDrops phase.
+# Fast spiral speed (offset increment per update) for BeatDrops phase.
 fast_spiral_speed = 0.2
 
 # ====================================================
@@ -100,9 +100,18 @@ gold_color   = intended_color((255, 215, 0))         # Gold
 yellow_color = intended_color((255, 255, 0))         # Yellow
 pink_color   = intended_color((255, 105, 180))       # Pink
 
-# Accent colors for the back vocal intervals.
-blue_color   = intended_color((0, 0, 255))           # Blue
-purple_color = intended_color((128, 0, 128))         # Purple
+# For the default fast spiral (when no accent is active), we use red, green, white.
+# For accent mode (during back vocals), define a new accent palette:
+accent_orange    = intended_color((255, 165, 0))    # Orange
+accent_pink      = pink_color                        # Pink (reuse)
+accent_purple    = intended_color((147, 112, 219))    # Medium purple
+accent_yellow    = yellow_color                      # Yellow (reuse)
+accent_light_blue= intended_color((173, 216, 230))    # Light blue
+accent_red       = intended_color((255, 99, 71))      # Tomato red
+accent_green     = intended_color((144, 238, 144))    # Light green
+
+accent_palette = [accent_orange, accent_pink, accent_purple,
+                  accent_yellow, accent_light_blue, accent_red, accent_green]
 
 def scale_color(color, factor):
     """
@@ -184,17 +193,17 @@ def update_slow_spiral(offset, brightness_factor=1.0):
 
 def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
     """
-    Updates LEDs with a fast spiral effect cycling through colors.
-    If accent is False, it uses the normal palette (red, green, white).
-    If accent is True, it uses an expanded palette with accent colors (red, green, white, blue, purple).
+    Updates LEDs with a fast spiral effect.
+    If accent is False, it cycles through the standard palette: red, green, white.
+    If accent is True, it uses the accent palette:
+      [accent_orange, accent_pink, accent_purple, accent_yellow, accent_light_blue, accent_red, accent_green].
     'offset' rotates the color assignment; brightness_factor scales each color.
     """
     if accent:
-        palette = [red_color, green_color, white_color, blue_color, purple_color]
-        mod_val = len(palette)
+        mod_val = len(accent_palette)
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % mod_val
-            base = palette[color_index]
+            base = accent_palette[color_index]
             scaled = scale_color(base, brightness_factor)
             strip.setPixelColor(i, scaled)
     else:
@@ -222,9 +231,8 @@ def run_led_show():
       • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
         brightness ramps from the dim value (post_flash_brightness) to full brightness.
       • From PianoStarts until BeatDrops: independent fast pulse effect.
-      • From BeatDrops until "All I..." (allI_time): fast spiral effect.
-           During the back vocal intervals (BackVocalsStart-Stop and BackVocal2Start-Stop),
-           accent colors are incorporated into the spiral.
+      • From BeatDrops until "All I...": fast spiral effect.
+           During the back vocal intervals, accent colors are incorporated into the spiral.
       • Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
@@ -251,7 +259,7 @@ def run_led_show():
                     pulse_start_time = current_time
                 triggered_events.add(label)
 
-        # Before PianoStarts, use the default spiral (slow spiral).
+        # Default effect before PianoStarts.
         if adjusted_elapsed < PianoStarts_time:
             if adjusted_elapsed < buildStart_time:
                 brightness_factor = low_brightness_factor
@@ -273,17 +281,16 @@ def run_led_show():
             update_slow_spiral(spiral_offset, brightness_factor)
             spiral_offset += spiral_speed
         elif adjusted_elapsed < BeatDrops_time:
-            # Independent fast pulse effect.
             if pulse_start_time is None:
                 pulse_start_time = current_time
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
         elif adjusted_elapsed < allI_time:
-            # Fast spiral effect from BeatDrops until "All I..."
+            # From BeatDrops until "All I...", run fast spiral effect.
             brightness_factor = max_brightness_factor
-            # Determine if we are in a back vocal interval.
-            if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or 
+            # Check for back vocal intervals.
+            if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or
                 (adjusted_elapsed >= 76.841043 and adjusted_elapsed < 82.180078)):
                 accent = True
             else:
