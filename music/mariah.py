@@ -35,12 +35,12 @@ strip.begin()
 # Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
 # ====================================================
 # Key timestamps:
-buildStart_time   = 5.907982
-Flash1_time       = 7.167060
+buildStart_time     = 5.907982
+Flash1_time         = 7.167060
 LastIntroFlash_time = 39.028514
-Youuu_time        = 49.858378
-PianoStarts_time  = 50.844046
-BeatDrops_time    = 57.250889
+Youuu_time          = 49.858378
+PianoStarts_time    = 50.844046
+BeatDrops_time      = 57.250889
 
 events = [
     {"time": buildStart_time,   "label": "buildStart"},
@@ -86,6 +86,9 @@ red_color   = intended_color((255, 0, 0))         # Red
 green_color = intended_color((0, 255, 0))         # Green
 white_color = intended_color((255, 255, 255))     # White
 gold_color  = intended_color((255, 215, 0))        # Gold
+# Define additional colors:
+yellow_color = intended_color((255, 255, 0))       # Yellow
+pink_color   = intended_color((255, 105, 180))     # Pink
 
 def scale_color(color, factor):
     """
@@ -109,7 +112,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.75
+    fade_duration = 0.25
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -122,21 +125,14 @@ def flash_all():
 
 def pulse_fast(pulse_elapsed, pulse_speed):
     """
-    Pulses all LEDs using red, green, white.
-    The color cycles every 1 second while the brightness oscillates via a sine wave.
+    Pulses all LEDs by randomly assigning each pulse a color from the palette.
+    The palette includes white, yellow, red, green, and pink.
+    This pulse function is called extremely fast.
     """
-    factor = 0.5 * (1 + math.sin(2 * math.pi * pulse_speed * pulse_elapsed))
-    cycle_period = 1.0
-    color_index = int(pulse_elapsed / cycle_period) % 3
-    if color_index == 0:
-        base = red_color
-    elif color_index == 1:
-        base = green_color
-    else:
-        base = white_color
-    scaled = scale_color(base, factor)
+    palette = [white_color, yellow_color, red_color, green_color, pink_color]
+    chosen = random.choice(palette)
     for i in range(LED_COUNT):
-        strip.setPixelColor(i, scaled)
+        strip.setPixelColor(i, chosen)
     strip.show()
 
 def update_slow_spiral(offset, brightness_factor=1.0):
@@ -165,8 +161,9 @@ def run_led_show():
       • From Intro until buildStart: slow spiral at low brightness.
       • From buildStart to Flash1: brightness ramps from low to full.
       • From Flash1 until LastIntroFlash: spiral at full brightness.
-      • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu, brightness ramps up to full.
-      • From PianoStarts until BeatDrops: pulse effect at faster speed.
+      • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
+        brightness ramps from the dim value (post_flash_brightness) to full brightness.
+      • From PianoStarts until BeatDrops: pulse effect at faster speed with random color assignment.
       • Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
@@ -206,7 +203,6 @@ def run_led_show():
                     brightness_factor = max_brightness_factor
                     spiral_speed = 0.05
                 elif adjusted_elapsed < Youuu_time:
-                    # Ramp brightness from a dim value at LastIntroFlash to full brightness at Youuuuuuu.
                     ramp_fraction = (adjusted_elapsed - LastIntroFlash_time) / (Youuu_time - LastIntroFlash_time)
                     brightness_factor = post_flash_brightness + ramp_fraction * (max_brightness_factor - post_flash_brightness)
                     spiral_speed = 0.05
@@ -219,7 +215,7 @@ def run_led_show():
                 if pulse_start_time is None:
                     pulse_start_time = current_time
                 pulse_elapsed = current_time - pulse_start_time
-                pulse_speed = 3.0
+                pulse_speed = 3.0  # Parameter retained for potential future use.
                 pulse_fast(pulse_elapsed, pulse_speed)
             else:
                 break
@@ -228,7 +224,7 @@ def run_led_show():
     except KeyboardInterrupt:
         pass
 
-    # Turn off LEDs when finished.
+    # Turn off all LEDs when the show ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
