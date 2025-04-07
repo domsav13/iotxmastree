@@ -63,14 +63,28 @@ events = [
 # LED Effect Functions
 # ====================================================
 def flash_all():
-    """Flashes all LEDs brightly for a brief moment."""
+    """Flashes all LEDs to white and then fades them out gradually."""
+    # Set all LEDs to full white.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(255, 255, 255))
     strip.show()
-    time.sleep(0.1)
-    for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(0, 0, 0))
-    strip.show()
+    time.sleep(0.1)  # Initial flash duration.
+
+    # Fade out parameters.
+    fade_duration = 0.5  # Total time to fade out in seconds.
+    fade_steps = 20      # Number of steps in the fade.
+    fade_delay = fade_duration / fade_steps
+
+    # Gradually fade out by reducing the brightness.
+    for step in range(fade_steps):
+        factor = 1.0 - ((step + 1) / fade_steps)
+        r = int(255 * factor)
+        g = int(255 * factor)
+        b = int(255 * factor)
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(r, g, b))
+        strip.show()
+        time.sleep(fade_delay)
 
 def build_effect():
     """
