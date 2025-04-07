@@ -35,40 +35,51 @@ strip.begin()
 # Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
 # ====================================================
 # Key timestamps:
-buildStart_time      = 5.907982
-Flash1_time          = 7.167060
-LastIntroFlash_time  = 39.028514
-Youuu_time           = 49.858378
-PianoStarts_time     = 50.844046
-BeatDrops_time       = 57.250889
+buildStart_time       = 5.907982
+Flash1_time           = 7.167060
+LastIntroFlash_time   = 39.028514
+Youuu_time            = 49.858378
+PianoStarts_time      = 50.844046
+BeatDrops_time        = 57.250889
+allI_time             = 92.284925   # "All I..." label
 
 events = [
-    {"time": buildStart_time,   "label": "buildStart"},
-    {"time": Flash1_time,       "label": "Flash1"},
-    {"time": 12.445502,         "label": "Flash2"},
-    {"time": 16.900702,         "label": "Flash3"},
-    {"time": 20.581084,         "label": "Flash4"},
-    {"time": 24.648874,         "label": "Flash5"},
-    {"time": 27.663858,         "label": "Flash6"},
-    {"time": 28.929250,         "label": "Flash7"},
-    {"time": 31.483910,         "label": "Flash8"},
-    {"time": 33.035807,         "label": "Flash9"},
-    {"time": 35.399464,         "label": "Flash10"},
+    {"time": buildStart_time,    "label": "buildStart"},
+    {"time": Flash1_time,        "label": "Flash1"},
+    {"time": 12.445502,          "label": "Flash2"},
+    {"time": 16.900702,          "label": "Flash3"},
+    {"time": 20.581084,          "label": "Flash4"},
+    {"time": 24.648874,          "label": "Flash5"},
+    {"time": 27.663858,          "label": "Flash6"},
+    {"time": 28.929250,          "label": "Flash7"},
+    {"time": 31.483910,          "label": "Flash8"},
+    {"time": 33.035807,          "label": "Flash9"},
+    {"time": 35.399464,          "label": "Flash10"},
     {"time": LastIntroFlash_time, "label": "LastIntroFlash"},
-    {"time": Youuu_time,        "label": "Youuuuuuu"},
-    {"time": PianoStarts_time,  "label": "PianoStarts"},
-    {"time": BeatDrops_time,    "label": "BeatDrops"},
-    {"time": 63.370245,         "label": "BackVocalsStart"},
-    {"time": 69.777088,         "label": "BackVocalsStop"},
-    {"time": 76.841043,         "label": "BackVocal2Start"},
-    {"time": 82.180078,         "label": "BackVocal2Stop"},
+    {"time": Youuu_time,         "label": "Youuuuuuu"},
+    {"time": PianoStarts_time,   "label": "PianoStarts"},
+    {"time": BeatDrops_time,     "label": "BeatDrops"},
+    {"time": allI_time,          "label": "All I..."},
+    {"time": 63.370245,          "label": "BackVocalsStart"},
+    {"time": 69.777088,          "label": "BackVocalsStop"},
+    {"time": 76.841043,          "label": "BackVocal2Start"},
+    {"time": 82.180078,          "label": "BackVocal2Stop"},
     # Additional events as needed…
 ]
 
+# Define back vocal intervals.
+back_vocals_start  = 63.370245
+back_vocals_stop   = 69.777088
+back_vocal2_start  = 76.841043
+back_vocal2_stop   = 82.180078
+
 # Hyperparameters for brightness ramp:
-low_brightness_factor = 0.2   # Dim during Intro (before buildStart)
-max_brightness_factor = 1.0   # Full brightness
-post_flash_brightness = 0.3   # Brightness immediately after LastIntroFlash
+low_brightness_factor  = 0.2   # Dim during Intro (before buildStart)
+max_brightness_factor  = 1.0   # Full brightness
+post_flash_brightness  = 0.3   # Brightness immediately after LastIntroFlash
+
+# Fast spiral speed for BeatDrops phase.
+fast_spiral_speed = 0.2
 
 # ====================================================
 # Color Helpers (for GRB strips)
@@ -85,9 +96,13 @@ def intended_color(rgb_tuple):
 red_color    = intended_color((255, 0, 0))         # Red
 green_color  = intended_color((0, 255, 0))         # Green
 white_color  = intended_color((255, 255, 255))     # White
-gold_color   = intended_color((255, 215, 0))        # Gold
-yellow_color = intended_color((255, 255, 0))        # Yellow
-pink_color   = intended_color((255, 105, 180))      # Pink
+gold_color   = intended_color((255, 215, 0))         # Gold
+yellow_color = intended_color((255, 255, 0))         # Yellow
+pink_color   = intended_color((255, 105, 180))       # Pink
+
+# Accent colors for the back vocal intervals.
+blue_color   = intended_color((0, 0, 255))           # Blue
+purple_color = intended_color((128, 0, 128))         # Purple
 
 def scale_color(color, factor):
     """
@@ -111,7 +126,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.5
+    fade_duration = 0.75
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -122,13 +137,11 @@ def flash_all():
         strip.show()
         time.sleep(fade_delay)
 
-# Global variable to hold pulse state for independent LED pulsing.
+# Global pulse state for independent LED pulsing.
 pulse_state = None
 
 def init_pulse_state():
     global pulse_state
-    # Each LED gets its own random phase offset.
-    # Also choose an initial base color from our palette.
     pulse_state = {
         'phases': [random.uniform(0, 2*math.pi) for _ in range(LED_COUNT)],
         'colors': [random.choice([white_color, yellow_color, red_color, green_color, pink_color])
@@ -138,16 +151,14 @@ def init_pulse_state():
 def pulse_fast(pulse_elapsed, pulse_speed):
     """
     Pulses each LED independently.
-    For each LED, its brightness is determined by a sine wave with its unique phase,
+    Each LED uses its unique phase offset for a sine-wave brightness,
     and its base color is randomly updated with a small probability.
     """
     global pulse_state
     if pulse_state is None:
         init_pulse_state()
     for i in range(LED_COUNT):
-        # Compute brightness factor for this LED.
         brightness = 0.5 * (1 + math.sin(2 * math.pi * pulse_speed * pulse_elapsed + pulse_state['phases'][i]))
-        # With a 10% chance per update, randomly reassign the base color.
         if random.random() < 0.1:
             pulse_state['colors'][i] = random.choice([white_color, yellow_color, red_color, green_color, pink_color])
         scaled = scale_color(pulse_state['colors'][i], brightness)
@@ -171,6 +182,34 @@ def update_slow_spiral(offset, brightness_factor=1.0):
         strip.setPixelColor(i, scaled)
     strip.show()
 
+def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
+    """
+    Updates LEDs with a fast spiral effect cycling through colors.
+    If accent is False, it uses the normal palette (red, green, white).
+    If accent is True, it uses an expanded palette with accent colors (red, green, white, blue, purple).
+    'offset' rotates the color assignment; brightness_factor scales each color.
+    """
+    if accent:
+        palette = [red_color, green_color, white_color, blue_color, purple_color]
+        mod_val = len(palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = palette[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    else:
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % 3
+            if color_index == 0:
+                base = red_color
+            elif color_index == 1:
+                base = green_color
+            else:
+                base = white_color
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    strip.show()
+
 # ====================================================
 # Main LED Synchronization Loop
 # ====================================================
@@ -183,6 +222,9 @@ def run_led_show():
       • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
         brightness ramps from the dim value (post_flash_brightness) to full brightness.
       • From PianoStarts until BeatDrops: independent fast pulse effect.
+      • From BeatDrops until "All I..." (allI_time): fast spiral effect.
+           During the back vocal intervals (BackVocalsStart-Stop and BackVocal2Start-Stop),
+           accent colors are incorporated into the spiral.
       • Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
@@ -192,60 +234,68 @@ def run_led_show():
     global pulse_state
     pulse_state = None  # Reset pulse state on each show
 
-    try:
-        while True:
-            current_time = time.time()
-            adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
+    while True:
+        current_time = time.time()
+        adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
-            # Trigger timeline events.
-            for event in events:
-                if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
-                    label = event["label"]
-                    print("Triggering event:", label, "at adjusted time", adjusted_elapsed)
-                    if "Flash" in label:
-                        flash_all()
-                    elif "buildStart" in label:
-                        # buildStart triggers brightness ramp.
-                        pass
-                    elif "PianoStarts" in label:
-                        pulse_start_time = current_time
-                    triggered_events.add(label)
-
-            # Default effect before PianoStarts.
-            if adjusted_elapsed < PianoStarts_time:
-                if adjusted_elapsed < buildStart_time:
-                    brightness_factor = low_brightness_factor
-                    spiral_speed = 0.05
-                elif adjusted_elapsed < Flash1_time:
-                    ramp_fraction = (adjusted_elapsed - buildStart_time) / (Flash1_time - buildStart_time)
-                    brightness_factor = low_brightness_factor + ramp_fraction * (max_brightness_factor - low_brightness_factor)
-                    spiral_speed = 0.05
-                elif adjusted_elapsed < LastIntroFlash_time:
-                    brightness_factor = max_brightness_factor
-                    spiral_speed = 0.05
-                elif adjusted_elapsed < Youuu_time:
-                    ramp_fraction = (adjusted_elapsed - LastIntroFlash_time) / (Youuu_time - LastIntroFlash_time)
-                    brightness_factor = post_flash_brightness + ramp_fraction * (max_brightness_factor - post_flash_brightness)
-                    spiral_speed = 0.05
-                else:
-                    brightness_factor = max_brightness_factor
-                    spiral_speed = 0.05
-                update_slow_spiral(spiral_offset, brightness_factor)
-                spiral_offset += spiral_speed
-            elif adjusted_elapsed < BeatDrops_time:
-                if pulse_start_time is None:
+        # Trigger timeline events.
+        for event in events:
+            if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
+                label = event["label"]
+                print("Triggering event:", label, "at adjusted time", adjusted_elapsed)
+                if "Flash" in label:
+                    flash_all()
+                elif "buildStart" in label:
+                    pass  # buildStart triggers brightness ramp.
+                elif "PianoStarts" in label:
                     pulse_start_time = current_time
-                pulse_elapsed = current_time - pulse_start_time
-                pulse_speed = 3.0
-                pulse_fast(pulse_elapsed, pulse_speed)
+                triggered_events.add(label)
+
+        # Before PianoStarts, use the default spiral (slow spiral).
+        if adjusted_elapsed < PianoStarts_time:
+            if adjusted_elapsed < buildStart_time:
+                brightness_factor = low_brightness_factor
+                spiral_speed = 0.05
+            elif adjusted_elapsed < Flash1_time:
+                ramp_fraction = (adjusted_elapsed - buildStart_time) / (Flash1_time - buildStart_time)
+                brightness_factor = low_brightness_factor + ramp_fraction * (max_brightness_factor - low_brightness_factor)
+                spiral_speed = 0.05
+            elif adjusted_elapsed < LastIntroFlash_time:
+                brightness_factor = max_brightness_factor
+                spiral_speed = 0.05
+            elif adjusted_elapsed < Youuu_time:
+                ramp_fraction = (adjusted_elapsed - LastIntroFlash_time) / (Youuu_time - LastIntroFlash_time)
+                brightness_factor = post_flash_brightness + ramp_fraction * (max_brightness_factor - post_flash_brightness)
+                spiral_speed = 0.05
             else:
-                break
+                brightness_factor = max_brightness_factor
+                spiral_speed = 0.05
+            update_slow_spiral(spiral_offset, brightness_factor)
+            spiral_offset += spiral_speed
+        elif adjusted_elapsed < BeatDrops_time:
+            # Independent fast pulse effect.
+            if pulse_start_time is None:
+                pulse_start_time = current_time
+            pulse_elapsed = current_time - pulse_start_time
+            pulse_speed = 3.0
+            pulse_fast(pulse_elapsed, pulse_speed)
+        elif adjusted_elapsed < allI_time:
+            # Fast spiral effect from BeatDrops until "All I..."
+            brightness_factor = max_brightness_factor
+            # Determine if we are in a back vocal interval.
+            if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or 
+                (adjusted_elapsed >= 76.841043 and adjusted_elapsed < 82.180078)):
+                accent = True
+            else:
+                accent = False
+            update_fast_spiral(spiral_offset, brightness_factor, accent)
+            spiral_offset += fast_spiral_speed
+        else:
+            break
 
-            time.sleep(0.05)
-    except KeyboardInterrupt:
-        pass
+        time.sleep(0.05)
 
-    # Turn off LEDs when finished.
+    # Turn off LEDs when the show ends.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
