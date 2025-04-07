@@ -9,6 +9,11 @@ from flask import Flask, send_from_directory, render_template_string, jsonify
 from threading import Thread
 
 # ====================================================
+# Hyperparameter: Latency Offset (in seconds)
+# Adjust this value to compensate for any delay between Flask and the LED tree.
+LATENCY_OFFSET = 0.5
+
+# ====================================================
 # LED Tree Configuration
 # ====================================================
 # Load LED coordinates from CSV (should have columns: X, Y, Z).
@@ -19,7 +24,7 @@ LED_COUNT = len(df)
 LED_PIN     = 18       # GPIO pin (supports PWM)
 LED_FREQ_HZ = 800000   # LED signal frequency in hertz
 LED_DMA     = 10       # DMA channel for signal generation
-LED_BRIGHTNESS = 125   # Initial brightness (fixed, as no ambient sensor is used)
+LED_BRIGHTNESS = 125   # Initial brightness (fixed, no ambient sensor)
 LED_INVERT  = False    # Invert signal if needed
 LED_CHANNEL = 0        # Use channel 0 for GPIO 18
 
@@ -63,7 +68,6 @@ def flash_all():
         strip.setPixelColor(i, Color(255, 255, 255))
     strip.show()
     time.sleep(0.1)
-    # Turn off LEDs after flash
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
@@ -73,7 +77,7 @@ def build_effect():
     Represents the build: increase brightness to maximum.
     Here we set all LEDs to white at full brightness.
     """
-    strip.setBrightness(LED_BRIGHTNESS)  # Using fixed brightness value
+    strip.setBrightness(LED_BRIGHTNESS)
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(255, 255, 255))
     strip.show()
@@ -135,12 +139,14 @@ def run_led_show():
     triggered_events = set()
     try:
         while True:
-            elapsed = time.time() - start_time
+            # Adjust elapsed time by adding the latency offset.
+            adjusted_elapsed = (time.time() - start_time) + LATENCY_OFFSET
+
             # Trigger events based on their timestamps.
             for event in events:
-                if elapsed >= event["time"] and event["label"] not in triggered_events:
+                if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                     label = event["label"]
-                    print("Triggering event:", label, "at", elapsed, "seconds")
+                    print("Triggering event:", label, "at adjusted time", adjusted_elapsed, "seconds")
                     if "Flash" in label:
                         flash_all()
                     elif "buildStart" in label:
@@ -152,8 +158,9 @@ def run_led_show():
                     elif "BackVocals" in label or "BackVocal" in label:
                         background_vocals_effect()
                     triggered_events.add(label)
+            
             # End the loop after the final event.
-            if elapsed >= events[-1]["time"]:
+            if adjusted_elapsed >= events[-1]["time"]:
                 break
             time.sleep(0.01)
     except KeyboardInterrupt:
