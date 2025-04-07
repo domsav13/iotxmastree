@@ -35,12 +35,12 @@ strip.begin()
 # Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
 # ====================================================
 # Key timestamps:
-buildStart_time     = 5.907982
-Flash1_time         = 7.167060
-LastIntroFlash_time = 39.028514
-Youuu_time          = 49.858378
-PianoStarts_time    = 50.844046
-BeatDrops_time      = 57.250889
+buildStart_time      = 5.907982
+Flash1_time          = 7.167060
+LastIntroFlash_time  = 39.028514
+Youuu_time           = 49.858378
+PianoStarts_time     = 50.844046
+BeatDrops_time       = 57.250889
 
 events = [
     {"time": buildStart_time,   "label": "buildStart"},
@@ -82,13 +82,12 @@ def intended_color(rgb_tuple):
     return Color(g, r, b)
 
 # Define base colors (intended appearance):
-red_color   = intended_color((255, 0, 0))         # Red
-green_color = intended_color((0, 255, 0))         # Green
-white_color = intended_color((255, 255, 255))     # White
-gold_color  = intended_color((255, 215, 0))        # Gold
-# Define additional colors:
-yellow_color = intended_color((255, 255, 0))       # Yellow
-pink_color   = intended_color((255, 105, 180))     # Pink
+red_color    = intended_color((255, 0, 0))         # Red
+green_color  = intended_color((0, 255, 0))         # Green
+white_color  = intended_color((255, 255, 255))     # White
+gold_color   = intended_color((255, 215, 0))        # Gold
+yellow_color = intended_color((255, 255, 0))        # Yellow
+pink_color   = intended_color((255, 105, 180))      # Pink
 
 def scale_color(color, factor):
     """
@@ -112,7 +111,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.25
+    fade_duration = 0.5
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -123,16 +122,36 @@ def flash_all():
         strip.show()
         time.sleep(fade_delay)
 
+# Global variable to hold pulse state for independent LED pulsing.
+pulse_state = None
+
+def init_pulse_state():
+    global pulse_state
+    # Each LED gets its own random phase offset.
+    # Also choose an initial base color from our palette.
+    pulse_state = {
+        'phases': [random.uniform(0, 2*math.pi) for _ in range(LED_COUNT)],
+        'colors': [random.choice([white_color, yellow_color, red_color, green_color, pink_color])
+                   for _ in range(LED_COUNT)]
+    }
+
 def pulse_fast(pulse_elapsed, pulse_speed):
     """
-    Pulses all LEDs by randomly assigning each pulse a color from the palette.
-    The palette includes white, yellow, red, green, and pink.
-    This pulse function is called extremely fast.
+    Pulses each LED independently.
+    For each LED, its brightness is determined by a sine wave with its unique phase,
+    and its base color is randomly updated with a small probability.
     """
-    palette = [white_color, yellow_color, red_color, green_color, pink_color]
-    chosen = random.choice(palette)
+    global pulse_state
+    if pulse_state is None:
+        init_pulse_state()
     for i in range(LED_COUNT):
-        strip.setPixelColor(i, chosen)
+        # Compute brightness factor for this LED.
+        brightness = 0.5 * (1 + math.sin(2 * math.pi * pulse_speed * pulse_elapsed + pulse_state['phases'][i]))
+        # With a 10% chance per update, randomly reassign the base color.
+        if random.random() < 0.1:
+            pulse_state['colors'][i] = random.choice([white_color, yellow_color, red_color, green_color, pink_color])
+        scaled = scale_color(pulse_state['colors'][i], brightness)
+        strip.setPixelColor(i, scaled)
     strip.show()
 
 def update_slow_spiral(offset, brightness_factor=1.0):
@@ -163,13 +182,15 @@ def run_led_show():
       • From Flash1 until LastIntroFlash: spiral at full brightness.
       • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
         brightness ramps from the dim value (post_flash_brightness) to full brightness.
-      • From PianoStarts until BeatDrops: pulse effect at faster speed with random color assignment.
+      • From PianoStarts until BeatDrops: independent fast pulse effect.
       • Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
     triggered_events = set()
     spiral_offset = 0
     pulse_start_time = None
+    global pulse_state
+    pulse_state = None  # Reset pulse state on each show
 
     try:
         while True:
@@ -215,7 +236,7 @@ def run_led_show():
                 if pulse_start_time is None:
                     pulse_start_time = current_time
                 pulse_elapsed = current_time - pulse_start_time
-                pulse_speed = 3.0  # Parameter retained for potential future use.
+                pulse_speed = 3.0
                 pulse_fast(pulse_elapsed, pulse_speed)
             else:
                 break
@@ -224,7 +245,7 @@ def run_led_show():
     except KeyboardInterrupt:
         pass
 
-    # Turn off all LEDs when the show ends.
+    # Turn off LEDs when finished.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
