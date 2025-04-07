@@ -135,7 +135,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.75
+    fade_duration = 0.6
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
