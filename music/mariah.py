@@ -35,11 +35,12 @@ strip.begin()
 # Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
 # ====================================================
 # Key timestamps:
-buildStart_time  = 5.907982
-Flash1_time      = 7.167060
-Youuu_time       = 49.858378
-PianoStarts_time = 50.844046
-BeatDrops_time   = 57.250889
+buildStart_time   = 5.907982
+Flash1_time       = 7.167060
+LastIntroFlash_time = 39.028514
+Youuu_time        = 49.858378
+PianoStarts_time  = 50.844046
+BeatDrops_time    = 57.250889
 
 events = [
     {"time": buildStart_time,   "label": "buildStart"},
@@ -53,7 +54,7 @@ events = [
     {"time": 31.483910,         "label": "Flash8"},
     {"time": 33.035807,         "label": "Flash9"},
     {"time": 35.399464,         "label": "Flash10"},
-    {"time": 39.028514,         "label": "LastIntroFlash"},
+    {"time": LastIntroFlash_time, "label": "LastIntroFlash"},
     {"time": Youuu_time,        "label": "Youuuuuuu"},
     {"time": PianoStarts_time,  "label": "PianoStarts"},
     {"time": BeatDrops_time,    "label": "BeatDrops"},
@@ -67,6 +68,7 @@ events = [
 # Hyperparameters for brightness ramp:
 low_brightness_factor = 0.2   # Dim during Intro (before buildStart)
 max_brightness_factor = 1.0   # Full brightness
+post_flash_brightness = 0.3   # Brightness immediately after LastIntroFlash
 
 # ====================================================
 # Color Helpers (for GRB strips)
@@ -103,14 +105,11 @@ def scale_color(color, factor):
 # ====================================================
 def flash_all():
     """Flashes all LEDs to gold at full intensity and then fades them out gradually."""
-    # Set all LEDs to gold at full intensity.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, gold_color)
     strip.show()
-    time.sleep(0.15)  # Longer flash duration for extra brightness.
-    
-    # Fade out over 1.0 seconds.
-    fade_duration = 1.0
+    time.sleep(0.15)
+    fade_duration = 0.75
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -126,9 +125,7 @@ def pulse_fast(pulse_elapsed, pulse_speed):
     Pulses all LEDs using red, green, white.
     The color cycles every 1 second while the brightness oscillates via a sine wave.
     """
-    # Calculate brightness factor from a sine wave.
     factor = 0.5 * (1 + math.sin(2 * math.pi * pulse_speed * pulse_elapsed))
-    # Cycle through colors every 1 second.
     cycle_period = 1.0
     color_index = int(pulse_elapsed / cycle_period) % 3
     if color_index == 0:
@@ -167,7 +164,8 @@ def run_led_show():
     Runs the LED synchronization loop.
       • From Intro until buildStart: slow spiral at low brightness.
       • From buildStart to Flash1: brightness ramps from low to full.
-      • From Flash1 until "Youuuuuuu": spiral at full brightness with the same slow speed.
+      • From Flash1 until LastIntroFlash: spiral at full brightness.
+      • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu, brightness ramps up to full.
       • From PianoStarts until BeatDrops: pulse effect at faster speed.
       • Flash events (gold flash) override the default effect.
     """
@@ -179,10 +177,9 @@ def run_led_show():
     try:
         while True:
             current_time = time.time()
-            # Adjust elapsed time with latency offset.
             adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
-            # Check timeline events.
+            # Trigger timeline events.
             for event in events:
                 if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                     label = event["label"]
@@ -190,44 +187,48 @@ def run_led_show():
                     if "Flash" in label:
                         flash_all()
                     elif "buildStart" in label:
-                        # (buildStart triggers the brightness ramp.)
+                        # buildStart triggers brightness ramp.
                         pass
                     elif "PianoStarts" in label:
                         pulse_start_time = current_time
                     triggered_events.add(label)
 
-            # Default effect before PianoStarts:
+            # Default effect before PianoStarts.
             if adjusted_elapsed < PianoStarts_time:
                 if adjusted_elapsed < buildStart_time:
                     brightness_factor = low_brightness_factor
-                    spiral_speed = 0.05  # Slow speed during Intro.
+                    spiral_speed = 0.05
                 elif adjusted_elapsed < Flash1_time:
-                    # Ramp brightness from low to full between buildStart and Flash1.
                     ramp_fraction = (adjusted_elapsed - buildStart_time) / (Flash1_time - buildStart_time)
                     brightness_factor = low_brightness_factor + ramp_fraction * (max_brightness_factor - low_brightness_factor)
                     spiral_speed = 0.05
-                else:
-                    # From Flash1 until "Youuuuuuu", use full brightness with constant spiral speed.
+                elif adjusted_elapsed < LastIntroFlash_time:
                     brightness_factor = max_brightness_factor
-                    spiral_speed = 0.05  # Remains the same as Intro speed.
+                    spiral_speed = 0.05
+                elif adjusted_elapsed < Youuu_time:
+                    # Ramp brightness from a dim value at LastIntroFlash to full brightness at Youuuuuuu.
+                    ramp_fraction = (adjusted_elapsed - LastIntroFlash_time) / (Youuu_time - LastIntroFlash_time)
+                    brightness_factor = post_flash_brightness + ramp_fraction * (max_brightness_factor - post_flash_brightness)
+                    spiral_speed = 0.05
+                else:
+                    brightness_factor = max_brightness_factor
+                    spiral_speed = 0.05
                 update_slow_spiral(spiral_offset, brightness_factor)
                 spiral_offset += spiral_speed
             elif adjusted_elapsed < BeatDrops_time:
-                # From PianoStarts until BeatDrops, switch to a faster pulse effect.
                 if pulse_start_time is None:
                     pulse_start_time = current_time
                 pulse_elapsed = current_time - pulse_start_time
-                pulse_speed = 3.0  # Faster pulse speed.
+                pulse_speed = 3.0
                 pulse_fast(pulse_elapsed, pulse_speed)
             else:
-                # After BeatDrops, you can switch to another effect or end the show.
                 break
 
             time.sleep(0.05)
     except KeyboardInterrupt:
         pass
 
-    # Turn off all LEDs when the show ends.
+    # Turn off LEDs when finished.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
