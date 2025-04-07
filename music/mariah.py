@@ -17,6 +17,9 @@ LATENCY_OFFSET = -0.5
 # Load LED coordinates from CSV (CSV should have columns: X, Y, Z).
 df = pd.read_csv('coordinates.csv')
 LED_COUNT = len(df)
+# Compute min and max Z values for the gradual lighting effect.
+min_z = df["Z"].min()
+max_z = df["Z"].max()
 
 # LED strip configuration:
 LED_PIN         = 18       # GPIO pin (supports PWM)
@@ -78,7 +81,7 @@ low_brightness_factor  = 0.2   # Dim during Intro (before buildStart)
 max_brightness_factor  = 1.0   # Full brightness
 post_flash_brightness  = 0.3   # Brightness immediately after LastIntroFlash
 
-# Fast spiral speed (offset increment per update) for BeatDrops phase.
+# Fast spiral speed for BeatDrops phase.
 fast_spiral_speed = 0.2
 
 # ====================================================
@@ -100,15 +103,15 @@ gold_color   = intended_color((255, 215, 0))         # Gold
 yellow_color = intended_color((255, 255, 0))         # Yellow
 pink_color   = intended_color((255, 105, 180))       # Pink
 
-# For the default fast spiral (when no accent is active), we use red, green, white.
-# For accent mode (during back vocals), define a new accent palette:
-accent_orange    = intended_color((255, 165, 0))    # Orange
-accent_pink      = pink_color                        # Pink (reuse)
-accent_purple    = intended_color((147, 112, 219))    # Medium purple
-accent_yellow    = yellow_color                      # Yellow (reuse)
-accent_light_blue= intended_color((173, 216, 230))    # Light blue
-accent_red       = intended_color((255, 99, 71))      # Tomato red
-accent_green     = intended_color((144, 238, 144))    # Light green
+# For the standard fast spiral, we use red, green, white.
+# For accent mode (back vocals), define an accent palette.
+accent_orange     = intended_color((255, 165, 0))    # Orange
+accent_pink       = pink_color                        # Pink (reuse)
+accent_purple     = intended_color((147, 112, 219))    # Medium purple
+accent_yellow     = yellow_color                      # Yellow (reuse)
+accent_light_blue = intended_color((173, 216, 230))    # Light blue
+accent_red        = intended_color((255, 99, 71))      # Tomato red
+accent_green      = intended_color((144, 238, 144))    # Light green
 
 accent_palette = [accent_orange, accent_pink, accent_purple,
                   accent_yellow, accent_light_blue, accent_red, accent_green]
@@ -127,7 +130,35 @@ def scale_color(color, factor):
     return Color(red, green, blue)
 
 # ====================================================
-# LED Effect Functions
+# New Effect: Gradual Bottom-Up Lighting with Twinkle
+# ====================================================
+def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
+    """
+    Gradually lights up the tree from the bottom up.
+    Based on the Z-coordinate of each LED, a fraction of the tree is lit.
+    LEDs with lower normalized Z values light up first.
+    A random twinkle effect is applied (random brightness modulation).
+    By flash1_time, the entire tree is lit.
+    """
+    # Determine the fraction of the tree to light up.
+    fraction = min(adjusted_elapsed / flash1_time, 1.0)
+    for i in range(LED_COUNT):
+        # Get the Z coordinate for LED i (assumes row order corresponds to LED index).
+        z = df.iloc[i]["Z"]
+        # Normalize the Z coordinate.
+        norm_z = (z - min_z) / (max_z - min_z)
+        # If the normalized Z is below the fraction, light up the LED with twinkle.
+        if norm_z <= fraction:
+            # Twinkle factor varies randomly between 0.8 and 1.0.
+            twinkle = random.uniform(0.8, 1.0)
+            color = scale_color(white_color, twinkle)
+        else:
+            color = Color(0, 0, 0)
+        strip.setPixelColor(i, color)
+    strip.show()
+
+# ====================================================
+# LED Effect Functions (Existing)
 # ====================================================
 def flash_all():
     """Flashes all LEDs to gold at full intensity and then fades them out gradually."""
@@ -135,7 +166,7 @@ def flash_all():
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.6
+    fade_duration = 0.75
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -195,8 +226,7 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
     """
     Updates LEDs with a fast spiral effect.
     If accent is False, it cycles through the standard palette: red, green, white.
-    If accent is True, it uses the accent palette:
-      [accent_orange, accent_pink, accent_purple, accent_yellow, accent_light_blue, accent_red, accent_green].
+    If accent is True, it uses the accent palette.
     'offset' rotates the color assignment; brightness_factor scales each color.
     """
     if accent:
@@ -225,14 +255,13 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
 def run_led_show():
     """
     Runs the LED synchronization loop.
-      • From Intro until buildStart: slow spiral at low brightness.
-      • From buildStart to Flash1: brightness ramps from low to full.
-      • From Flash1 until LastIntroFlash: spiral at full brightness.
+      • From Intro until Flash1: the tree gradually lights up from the bottom with twinkle.
+      • From Flash1 until LastIntroFlash: the initial spiral effect (slow spiral) runs.
       • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
         brightness ramps from the dim value (post_flash_brightness) to full brightness.
       • From PianoStarts until BeatDrops: independent fast pulse effect.
       • From BeatDrops until "All I...": fast spiral effect.
-           During the back vocal intervals, accent colors are incorporated into the spiral.
+           During back vocal intervals, accent colors are incorporated.
       • Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
@@ -254,42 +283,32 @@ def run_led_show():
                 if "Flash" in label:
                     flash_all()
                 elif "buildStart" in label:
-                    pass  # buildStart triggers brightness ramp.
+                    pass  # buildStart could trigger a ramp if needed.
                 elif "PianoStarts" in label:
                     pulse_start_time = current_time
                 triggered_events.add(label)
 
-        # Default effect before PianoStarts.
-        if adjusted_elapsed < PianoStarts_time:
-            if adjusted_elapsed < buildStart_time:
-                brightness_factor = low_brightness_factor
-                spiral_speed = 0.05
-            elif adjusted_elapsed < Flash1_time:
-                ramp_fraction = (adjusted_elapsed - buildStart_time) / (Flash1_time - buildStart_time)
-                brightness_factor = low_brightness_factor + ramp_fraction * (max_brightness_factor - low_brightness_factor)
-                spiral_speed = 0.05
-            elif adjusted_elapsed < LastIntroFlash_time:
-                brightness_factor = max_brightness_factor
-                spiral_speed = 0.05
-            elif adjusted_elapsed < Youuu_time:
-                ramp_fraction = (adjusted_elapsed - LastIntroFlash_time) / (Youuu_time - LastIntroFlash_time)
-                brightness_factor = post_flash_brightness + ramp_fraction * (max_brightness_factor - post_flash_brightness)
-                spiral_speed = 0.05
-            else:
-                brightness_factor = max_brightness_factor
-                spiral_speed = 0.05
+        # Effect Branches:
+        if adjusted_elapsed < Flash1_time:
+            # From Intro to Flash1: gradually light up from the bottom with twinkle.
+            gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
+        elif adjusted_elapsed < PianoStarts_time:
+            # From Flash1 until PianoStarts: run the initial (slow) spiral effect.
+            brightness_factor = max_brightness_factor
+            spiral_speed = 0.05
             update_slow_spiral(spiral_offset, brightness_factor)
             spiral_offset += spiral_speed
         elif adjusted_elapsed < BeatDrops_time:
+            # From PianoStarts until BeatDrops: independent fast pulse effect.
             if pulse_start_time is None:
                 pulse_start_time = current_time
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
         elif adjusted_elapsed < allI_time:
-            # From BeatDrops until "All I...", run fast spiral effect.
+            # From BeatDrops until "All I...": fast spiral effect.
             brightness_factor = max_brightness_factor
-            # Check for back vocal intervals.
+            # Check for back vocal intervals to enable accent mode.
             if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or
                 (adjusted_elapsed >= 76.841043 and adjusted_elapsed < 82.180078)):
                 accent = True
@@ -302,7 +321,7 @@ def run_led_show():
 
         time.sleep(0.05)
 
-    # Turn off LEDs when the show ends.
+    # Turn off LEDs when finished.
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
     strip.show()
