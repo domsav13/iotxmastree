@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import time
-import colorsys
-import random
 import math
+import random
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 from flask import Flask, send_from_directory, render_template_string, jsonify
@@ -10,23 +9,22 @@ from threading import Thread
 
 # ====================================================
 # Hyperparameter: Latency Offset (in seconds)
-# Adjust this value to compensate for any delay between Flask and the LED tree.
-LATENCY_OFFSET = -0.5
+LATENCY_OFFSET = 0.5
 
 # ====================================================
 # LED Tree Configuration
 # ====================================================
-# Load LED coordinates from CSV (should have columns: X, Y, Z).
+# Load LED coordinates from CSV (CSV should have columns: X, Y, Z).
 df = pd.read_csv('coordinates.csv')
 LED_COUNT = len(df)
 
 # LED strip configuration:
-LED_PIN     = 18       # GPIO pin (supports PWM)
-LED_FREQ_HZ = 800000   # LED signal frequency in hertz
-LED_DMA     = 10       # DMA channel for signal generation
-LED_BRIGHTNESS = 125   # Initial brightness (fixed, no ambient sensor)
-LED_INVERT  = False    # Invert signal if needed
-LED_CHANNEL = 0        # Use channel 0 for GPIO 18
+LED_PIN         = 18       # GPIO pin (supports PWM)
+LED_FREQ_HZ     = 800000   # LED signal frequency in hertz
+LED_DMA         = 10       # DMA channel for signal generation
+LED_BRIGHTNESS  = 125      # Fixed brightness (no ambient sensor)
+LED_INVERT      = False    # Invert signal if needed
+LED_CHANNEL     = 0        # Use channel 0 for GPIO 18
 
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                    LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
@@ -36,109 +34,135 @@ strip.begin()
 # Timeline for Song Events (timestamps in seconds)
 # Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
 # ====================================================
+# Key timestamps for our new behavior:
+buildStart_time = 5.907982
+Flash1_time     = 7.167060
+PianoStarts_time= 50.844046
+BeatDrops_time  = 57.250889
+# (Other events remain in the timeline for triggering flash effects, etc.)
 events = [
-    {"time": 5.907982,   "label": "buildStart"},
-    {"time": 7.167060,   "label": "Flash1"},
-    {"time": 12.445502,  "label": "Flash2"},
-    {"time": 16.900702,  "label": "Flash3"},
-    {"time": 20.581084,  "label": "Flash4"},
-    {"time": 24.648874,  "label": "Flash5"},
-    {"time": 27.663858,  "label": "Flash6"},
-    {"time": 28.929250,  "label": "Flash7"},
-    {"time": 31.483910,  "label": "Flash8"},
-    {"time": 33.035807,  "label": "Flash9"},
-    {"time": 35.399464,  "label": "Flash10"},
-    {"time": 39.028514,  "label": "LastIntroFlash"},
-    {"time": 49.858378,  "label": "Youuuuuuu"},
-    {"time": 50.844046,  "label": "PianoStarts"},
-    {"time": 57.250889,  "label": "BeatDrops"},
-    {"time": 63.370245,  "label": "BackVocalsStart"},
-    {"time": 69.777088,  "label": "BackVocalsStop"},
-    {"time": 76.841043,  "label": "BackVocal2Start"},
-    {"time": 82.180078,  "label": "BackVocal2Stop"},
-    # Additional events can be added as needed…
+    {"time": buildStart_time,   "label": "buildStart"},
+    {"time": 7.167060,          "label": "Flash1"},
+    {"time": 12.445502,         "label": "Flash2"},
+    {"time": 16.900702,         "label": "Flash3"},
+    {"time": 20.581084,         "label": "Flash4"},
+    {"time": 24.648874,         "label": "Flash5"},
+    {"time": 27.663858,         "label": "Flash6"},
+    {"time": 28.929250,         "label": "Flash7"},
+    {"time": 31.483910,         "label": "Flash8"},
+    {"time": 33.035807,         "label": "Flash9"},
+    {"time": 35.399464,         "label": "Flash10"},
+    {"time": 39.028514,         "label": "LastIntroFlash"},
+    {"time": 49.858378,         "label": "Youuuuuuu"},
+    {"time": PianoStarts_time,  "label": "PianoStarts"},
+    {"time": BeatDrops_time,    "label": "BeatDrops"},
+    {"time": 63.370245,         "label": "BackVocalsStart"},
+    {"time": 69.777088,         "label": "BackVocalsStop"},
+    {"time": 76.841043,         "label": "BackVocal2Start"},
+    {"time": 82.180078,         "label": "BackVocal2Stop"},
+    # Additional events as needed…
 ]
+
+# Hyperparameters for brightness ramp:
+low_brightness_factor = 0.2   # Dim during Intro
+max_brightness_factor = 1.0   # Full brightness
+
+# ====================================================
+# Color Helpers (for GRB strips)
+# ====================================================
+def intended_color(rgb_tuple):
+    """
+    Converts an (R, G, B) tuple in standard RGB into a Color value for GRB strips.
+    (Swaps red and green.)
+    """
+    r, g, b = rgb_tuple
+    return Color(g, r, b)
+
+# Define base colors (intended appearance):
+red_color   = intended_color((255, 0, 0))         # Red
+green_color = intended_color((0, 255, 0))         # Green
+white_color = intended_color((255, 255, 255))     # White
+gold_color  = intended_color((255, 215, 0))        # Gold
+
+def scale_color(color, factor):
+    """
+    Scales a Color's brightness by factor (0.0 to 1.0).
+    Decodes the GRB-encoded color, scales channels, and re-encodes.
+    """
+    blue = color & 0xFF
+    red  = (color >> 8) & 0xFF
+    green = (color >> 16) & 0xFF
+    red   = int(red * factor)
+    green = int(green * factor)
+    blue  = int(blue * factor)
+    return Color(red, green, blue)
 
 # ====================================================
 # LED Effect Functions
 # ====================================================
 def flash_all():
-    """Flashes all LEDs to white and then fades them out gradually."""
-    # Set all LEDs to full white.
+    """Flashes all LEDs to gold and then fades them out gradually."""
+    # Set all LEDs to gold.
     for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(255, 255, 255))
+        strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.1)  # Initial flash duration.
-
-    # Fade out parameters.
-    fade_duration = 0.5  # Total time to fade out in seconds.
-    fade_steps = 20      # Number of steps in the fade.
+    # Fade out over 0.5 seconds.
+    fade_duration = 0.5
+    fade_steps = 20
     fade_delay = fade_duration / fade_steps
-
-    # Gradually fade out by reducing the brightness.
     for step in range(fade_steps):
         factor = 1.0 - ((step + 1) / fade_steps)
-        r = int(255 * factor)
-        g = int(255 * factor)
-        b = int(255 * factor)
+        faded = scale_color(gold_color, factor)
         for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(r, g, b))
+            strip.setPixelColor(i, faded)
         strip.show()
         time.sleep(fade_delay)
 
 def build_effect():
     """
-    Represents the build: increase brightness to maximum.
-    Here we set all LEDs to white at full brightness.
+    Represents a build effect.
+    (For this example, the build ramp is implemented in the main loop.)
     """
-    strip.setBrightness(LED_BRIGHTNESS)
+    # This function can be used for instantaneous events if needed.
+    pass
+
+def pulse_fast(pulse_elapsed, pulse_speed):
+    """
+    Pulses all LEDs using red, green, white.
+    The color cycles every second while the brightness oscillates via a sine wave.
+    """
+    # Calculate a brightness factor from a sine wave.
+    factor = 0.5 * (1 + math.sin(2 * math.pi * pulse_speed * pulse_elapsed))
+    # Cycle through colors every 1 second.
+    cycle_period = 1.0
+    color_index = int(pulse_elapsed / cycle_period) % 3
+    if color_index == 0:
+        base = red_color
+    elif color_index == 1:
+        base = green_color
+    else:
+        base = white_color
+    scaled = scale_color(base, factor)
     for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(255, 255, 255))
+        strip.setPixelColor(i, scaled)
     strip.show()
-    time.sleep(0.5)
 
-def pulse_fast():
-    """Pulses all LEDs quickly, simulating a fast heartbeat or piano start."""
-    for _ in range(5):  # 5 rapid pulses
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(255, 255, 255))
-        strip.show()
-        time.sleep(0.05)
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-        strip.show()
-        time.sleep(0.05)
-
-def spiral_swirl():
+def update_slow_spiral(offset, brightness_factor=1.0):
     """
-    Creates a spiral swirl effect of red and white.
-    This is a placeholder effect that alternates colors along LED indices.
-    """
-    for _ in range(20):  # Duration of the swirl effect
-        for i in range(LED_COUNT):
-            if i % 2 == 0:
-                color = Color(255, 0, 0)  # red
-            else:
-                color = Color(255, 255, 255)  # white
-            strip.setPixelColor(i, color)
-        strip.show()
-        time.sleep(0.05)
-        for i in range(LED_COUNT):
-            if i % 2 == 0:
-                color = Color(255, 255, 255)
-            else:
-                color = Color(255, 0, 0)
-            strip.setPixelColor(i, color)
-        strip.show()
-        time.sleep(0.05)
-
-def background_vocals_effect():
-    """
-    Adds a supporting color during background vocal intervals.
-    For example, a subdued purple can complement the main effects.
+    Updates LEDs with a slow spiral effect cycling through red, green, and white.
+    The 'offset' rotates the color assignment; brightness_factor scales each color.
     """
     for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(128, 0, 128))
+        color_index = (i + int(offset)) % 3
+        if color_index == 0:
+            base = red_color
+        elif color_index == 1:
+            base = green_color
+        else:
+            base = white_color
+        scaled = scale_color(base, brightness_factor)
+        strip.setPixelColor(i, scaled)
     strip.show()
 
 # ====================================================
@@ -147,36 +171,66 @@ def background_vocals_effect():
 def run_led_show():
     """
     Runs the LED synchronization loop.
-    This function is intended to run in a background thread while the song plays in the browser.
+    • From Intro until buildStart: slow spiral at low brightness.
+    • From buildStart to Flash1: brightness ramps from low to full.
+    • From Flash1 until PianoStarts: spiral at full brightness.
+    • From PianoStarts until BeatDrops: pulse effect.
+    Flash events (gold flash) override the default effect.
     """
     start_time = time.time()
     triggered_events = set()
+    spiral_offset = 0
+    pulse_start_time = None
+
     try:
         while True:
-            # Adjust elapsed time by adding the latency offset.
-            adjusted_elapsed = (time.time() - start_time) + LATENCY_OFFSET
+            current_time = time.time()
+            # Adjust elapsed time with latency offset.
+            adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
-            # Trigger events based on their timestamps.
+            # Check timeline events.
             for event in events:
                 if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                     label = event["label"]
-                    print("Triggering event:", label, "at adjusted time", adjusted_elapsed, "seconds")
+                    print("Triggering event:", label, "at adjusted time", adjusted_elapsed)
                     if "Flash" in label:
                         flash_all()
                     elif "buildStart" in label:
-                        build_effect()
+                        # Reset any ramp state.
+                        pass
                     elif "PianoStarts" in label:
-                        pulse_fast()
-                    elif "BeatDrops" in label:
-                        spiral_swirl()
-                    elif "BackVocals" in label or "BackVocal" in label:
-                        background_vocals_effect()
+                        pulse_start_time = current_time
                     triggered_events.add(label)
-            
-            # End the loop after the final event.
-            if adjusted_elapsed >= events[-1]["time"]:
+
+            # Default effect before "PianoStarts" is the spiral.
+            if adjusted_elapsed < PianoStarts_time:
+                # Determine brightness factor based on time:
+                if adjusted_elapsed < buildStart_time:
+                    brightness_factor = low_brightness_factor
+                    spiral_speed = 0.05  # Slowest spiral during intro.
+                elif adjusted_elapsed < Flash1_time:
+                    # Ramp brightness from low to full.
+                    ramp_fraction = (adjusted_elapsed - buildStart_time) / (Flash1_time - buildStart_time)
+                    brightness_factor = low_brightness_factor + ramp_fraction * (max_brightness_factor - low_brightness_factor)
+                    spiral_speed = 0.05
+                else:
+                    brightness_factor = max_brightness_factor
+                    spiral_speed = 0.1  # Slightly faster after ramp.
+
+                update_slow_spiral(spiral_offset, brightness_factor)
+                spiral_offset += spiral_speed
+            elif adjusted_elapsed < BeatDrops_time:
+                # From PianoStarts until BeatDrops, use the pulse effect.
+                if pulse_start_time is None:
+                    pulse_start_time = current_time
+                pulse_elapsed = current_time - pulse_start_time
+                pulse_speed = 2.0  # Pulses per second.
+                pulse_fast(pulse_elapsed, pulse_speed)
+            else:
+                # After BeatDrops, you could switch to another effect or stop.
                 break
-            time.sleep(0.01)
+
+            time.sleep(0.05)
     except KeyboardInterrupt:
         pass
 
@@ -204,7 +258,6 @@ def index():
               .then(response => response.json())
               .then(data => {
                 console.log(data);
-                // Play audio when the light show is triggered.
                 var audio = document.getElementById('audio');
                 audio.play();
               })
