@@ -9,7 +9,7 @@ from threading import Thread
 
 # ====================================================
 # Hyperparameter: Latency Offset (in seconds)
-LATENCY_OFFSET = 0.5
+LATENCY_OFFSET = -0.5
 
 # ====================================================
 # LED Tree Configuration
