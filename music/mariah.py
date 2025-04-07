@@ -14,137 +14,106 @@ LATENCY_OFFSET = -0.5
 # ====================================================
 # LED Tree Configuration
 # ====================================================
-# Load LED coordinates from CSV (CSV should have columns: X, Y, Z).
-df = pd.read_csv('coordinates.csv')
+df = pd.read_csv('coordinates.csv')  # CSV should have columns: X, Y, Z.
 LED_COUNT = len(df)
-# Compute min and max Z values for the gradual lighting effect.
 min_z = df["Z"].min()
 max_z = df["Z"].max()
 
 # LED strip configuration:
 LED_PIN         = 18       # GPIO pin (supports PWM)
-LED_FREQ_HZ     = 800000   # LED signal frequency in hertz
+LED_FREQ_HZ     = 800000   # Frequency in hertz
 LED_DMA         = 10       # DMA channel for signal generation
 LED_BRIGHTNESS  = 125      # Fixed brightness (no ambient sensor)
 LED_INVERT      = False    # Invert signal if needed
-LED_CHANNEL     = 0        # Use channel 0 for GPIO 18
+LED_CHANNEL     = 0        # Use channel 0
 
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                    LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()
 
 # ====================================================
-# Timeline for Song Events (timestamps in seconds)
-# Source: mariah_labels.txt :contentReference[oaicite:0]{index=0}
+# Timeline (timestamps in seconds from mariah_labels.txt)
 # ====================================================
-# Key timestamps:
 buildStart_time       = 5.907982
 Flash1_time           = 7.167060
 LastIntroFlash_time   = 39.028514
 Youuu_time            = 49.858378
 PianoStarts_time      = 50.844046
 BeatDrops_time        = 57.250889
-allI_time             = 92.284925   # "All I..." label
+BackVocalsStart       = 63.370245
+BackVocalsStop        = 69.777088
+BackVocal2Start       = 76.841043
+BackVocal2Stop        = 82.180078
+All_I_time            = 92.284925   # "All I..."
+youuuu_label_1        = 98.449425   # first "you... Youuuuuu"
+BackVocal3Start       = 108.247176
+BackVocal3Stop        = 114.172523
+BackVocal4Start       = 121.508666
+BackVocal4Stop        = 127.095422
+All_dots_time         = 137.298746  # "All...."
+youuuu_label_2        = 142.998365  # second "you... Youuuuu"
 
-events = [
-    {"time": buildStart_time,    "label": "buildStart"},
-    {"time": Flash1_time,        "label": "Flash1"},
-    {"time": 12.445502,          "label": "Flash2"},
-    {"time": 16.900702,          "label": "Flash3"},
-    {"time": 20.581084,          "label": "Flash4"},
-    {"time": 24.648874,          "label": "Flash5"},
-    {"time": 27.663858,          "label": "Flash6"},
-    {"time": 28.929250,          "label": "Flash7"},
-    {"time": 31.483910,          "label": "Flash8"},
-    {"time": 33.035807,          "label": "Flash9"},
-    {"time": 35.399464,          "label": "Flash10"},
-    {"time": LastIntroFlash_time, "label": "LastIntroFlash"},
-    {"time": Youuu_time,         "label": "Youuuuuuu"},
-    {"time": PianoStarts_time,   "label": "PianoStarts"},
-    {"time": BeatDrops_time,     "label": "BeatDrops"},
-    {"time": allI_time,          "label": "All I..."},
-    {"time": 63.370245,          "label": "BackVocalsStart"},
-    {"time": 69.777088,          "label": "BackVocalsStop"},
-    {"time": 76.841043,          "label": "BackVocal2Start"},
-    {"time": 82.180078,          "label": "BackVocal2Stop"},
-    # Additional events as needed…
-]
+# Define back vocal intervals for phase 4 (original):
+back_vocals_phase4 = [(BackVocalsStart, BackVocalsStop), (BackVocal2Start, BackVocal2Stop)]
+# Define new back vocal intervals for phase 5:
+back_vocals_phase5 = [(BackVocal3Start, BackVocal3Stop), (BackVocal4Start, BackVocal4Stop)]
 
-# Define back vocal intervals.
-back_vocals_start  = 63.370245
-back_vocals_stop   = 69.777088
-back_vocal2_start  = 76.841043
-back_vocal2_stop   = 82.180078
-
-# Hyperparameters for brightness ramp:
-low_brightness_factor  = 0.2   # Dim during Intro (before buildStart)
+# ====================================================
+# Hyperparameters for Brightness Ramp
+low_brightness_factor  = 0.2   # Before buildStart
 max_brightness_factor  = 1.0   # Full brightness
-post_flash_brightness  = 0.3   # Brightness immediately after LastIntroFlash
+post_flash_brightness  = 0.3   # Immediately after LastIntroFlash
 
-# Fast spiral speed (offset increment per update) for BeatDrops phase.
+# Fast spiral speed for fast spiral phases.
 fast_spiral_speed = 0.2
 
 # ====================================================
 # Color Helpers (for GRB strips)
 # ====================================================
 def intended_color(rgb_tuple):
-    """
-    Converts an (R, G, B) tuple in standard RGB into a Color value for GRB strips.
-    (Swaps red and green.)
-    """
     r, g, b = rgb_tuple
-    return Color(g, r, b)
+    return Color(g, r, b)  # Swap red and green
 
-# Define base colors (intended appearance):
-red_color    = intended_color((255, 0, 0))         # Red
-green_color  = intended_color((0, 255, 0))         # Green
-white_color  = intended_color((255, 255, 255))     # White
-gold_color   = intended_color((255, 215, 0))         # Gold
-yellow_color = intended_color((255, 255, 0))         # Yellow
-pink_color   = intended_color((255, 105, 180))       # Pink
+# Standard base colors:
+red_color    = intended_color((255, 0, 0))        # Red
+green_color  = intended_color((0, 255, 0))        # Green
+white_color  = intended_color((255, 255, 255))    # White
+gold_color   = intended_color((255, 215, 0))        # Gold
+yellow_color = intended_color((255, 255, 0))        # Yellow
+pink_color   = intended_color((255, 105, 180))      # Pink
 
-# For the standard fast spiral, we use red, green, white.
-# For accent mode (back vocals), define an accent palette.
-accent_orange     = intended_color((255, 165, 0))    # Orange
-accent_pink       = pink_color                        # Pink (reuse)
-accent_purple     = intended_color((147, 112, 219))    # Medium purple
-accent_yellow     = yellow_color                      # Yellow (reuse)
-accent_light_blue = intended_color((173, 216, 230))    # Light blue
-accent_red        = intended_color((255, 99, 71))      # Tomato red
-accent_green      = intended_color((144, 238, 144))    # Light green
+# Accent palette for phase 4 (original accent):
+accent_orange     = intended_color((255, 165, 0))   # Orange
+accent_pink       = pink_color                       # Pink (reuse)
+accent_purple     = intended_color((147, 112, 219))   # Medium purple
+accent_light_blue = intended_color((173, 216, 230))   # Light blue
+accent_red        = intended_color((255, 99, 71))     # Tomato red
+accent_green      = intended_color((144, 238, 144))   # Light green
 
 accent_palette = [accent_orange, accent_pink, accent_purple,
-                  accent_yellow, accent_light_blue, accent_red, accent_green]
+                  yellow_color, accent_light_blue, accent_red, accent_green]
+
+# New palette for phase 5 (normal):
+new_light_blue = intended_color((173, 216, 230))
+new_palette = [new_light_blue, pink_color, accent_purple]
+# New accent palette for phase 5:
+new_accent_palette = [red_color, green_color, yellow_color, white_color]
 
 def scale_color(color, factor):
-    """
-    Scales a Color's brightness by factor (0.0 to 1.0).
-    Decodes the GRB-encoded color, scales channels, and re-encodes.
-    """
     blue  = color & 0xFF
     red   = (color >> 8) & 0xFF
     green = (color >> 16) & 0xFF
-    red   = int(red * factor)
-    green = int(green * factor)
-    blue  = int(blue * factor)
-    return Color(red, green, blue)
+    return Color(int(red * factor), int(green * factor), int(blue * factor))
 
 # ====================================================
-# New Effect: Gradual Bottom-Up Lighting with White and Pink Twinkle
+# New Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle
 # ====================================================
 def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
-    """
-    Gradually lights up the tree from the bottom up using a mix of white and pink.
-    Each LED's Z-coordinate (normalized) is compared to the fill fraction.
-    If the LED's normalized Z is below the fraction, it is lit using either white or pink
-    (chosen at random) with a slight twinkle effect. By flash1_time, the entire tree is lit.
-    """
     fraction = min(adjusted_elapsed / flash1_time, 1.0)
     for i in range(LED_COUNT):
         z = df.iloc[i]["Z"]
         norm_z = (z - min_z) / (max_z - min_z)
         if norm_z <= fraction:
-            # Choose randomly between white and pink.
             chosen_color = random.choice([white_color, pink_color])
             twinkle = random.uniform(0.8, 1.0)
             color = scale_color(chosen_color, twinkle)
@@ -154,15 +123,14 @@ def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
     strip.show()
 
 # ====================================================
-# LED Effect Functions (Existing)
+# Existing LED Effect Functions
 # ====================================================
 def flash_all():
-    """Flashes all LEDs to gold at full intensity and then fades them out gradually."""
     for i in range(LED_COUNT):
         strip.setPixelColor(i, gold_color)
     strip.show()
     time.sleep(0.15)
-    fade_duration = 0.6  # Updated flash fade duration as per your reference.
+    fade_duration = 0.6
     fade_steps = 20
     fade_delay = fade_duration / fade_steps
     for step in range(fade_steps):
@@ -173,7 +141,7 @@ def flash_all():
         strip.show()
         time.sleep(fade_delay)
 
-# Global pulse state for independent LED pulsing.
+# Global pulse state for independent pulsing.
 pulse_state = None
 
 def init_pulse_state():
@@ -185,11 +153,6 @@ def init_pulse_state():
     }
 
 def pulse_fast(pulse_elapsed, pulse_speed):
-    """
-    Pulses each LED independently.
-    Each LED uses its unique phase offset for a sine-wave brightness,
-    and its base color is randomly updated with a small probability.
-    """
     global pulse_state
     if pulse_state is None:
         init_pulse_state()
@@ -202,29 +165,14 @@ def pulse_fast(pulse_elapsed, pulse_speed):
     strip.show()
 
 def update_slow_spiral(offset, brightness_factor=1.0):
-    """
-    Updates LEDs with a slow spiral effect cycling through red, green, and white.
-    'offset' rotates the color assignment; brightness_factor scales each color.
-    """
     for i in range(LED_COUNT):
         color_index = (i + int(offset)) % 3
-        if color_index == 0:
-            base = red_color
-        elif color_index == 1:
-            base = green_color
-        else:
-            base = white_color
+        base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
         scaled = scale_color(base, brightness_factor)
         strip.setPixelColor(i, scaled)
     strip.show()
 
 def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
-    """
-    Updates LEDs with a fast spiral effect.
-    If accent is False, it cycles through the standard palette: red, green, white.
-    If accent is True, it uses the accent palette.
-    'offset' rotates the color assignment; brightness_factor scales each color.
-    """
     if accent:
         mod_val = len(accent_palette)
         for i in range(LED_COUNT):
@@ -235,12 +183,24 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
     else:
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % 3
-            if color_index == 0:
-                base = red_color
-            elif color_index == 1:
-                base = green_color
-            else:
-                base = white_color
+            base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    strip.show()
+
+def update_fast_spiral_new(offset, brightness_factor=1.0, accent=False):
+    if accent:
+        mod_val = len(new_accent_palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = new_accent_palette[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    else:
+        mod_val = len(new_palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = new_palette[color_index]
             scaled = scale_color(base, brightness_factor)
             strip.setPixelColor(i, scaled)
     strip.show()
@@ -249,17 +209,12 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    """
-    Runs the LED synchronization loop.
-      • From Intro until Flash1: the tree gradually lights up from the bottom with a twinkling mix of white and pink.
-      • From Flash1 until LastIntroFlash: the initial slow spiral effect runs.
-      • At LastIntroFlash, the LEDs dim, then from LastIntroFlash to Youuuuuuu,
-        brightness ramps from the dim value (post_flash_brightness) to full brightness.
-      • From PianoStarts until BeatDrops: independent fast pulse effect.
-      • From BeatDrops until "All I...": fast spiral effect.
-           During back vocal intervals, accent colors are incorporated.
-      • Flash events (gold flash) override the default effect.
-    """
+    # Define additional phase timestamps:
+    # Phase 4: from BeatDrops (57.250889) to you... Youuuuuu (first occurrence) at 98.449425.
+    # Phase 5: from you... Youuuuuu (first) to you... Youuuuuu (second) at 142.998365.
+    youuuu_label_1 = 98.449425
+    youuuu_label_2 = 142.998365
+
     start_time = time.time()
     triggered_events = set()
     spiral_offset = 0
@@ -279,37 +234,40 @@ def run_led_show():
                 if "Flash" in label:
                     flash_all()
                 elif "buildStart" in label:
-                    pass  # buildStart triggers brightness ramp if needed.
+                    pass
                 elif "PianoStarts" in label:
                     pulse_start_time = current_time
                 triggered_events.add(label)
 
-        # Effect Branches:
+        # Phase 1: Intro to Flash1.
         if adjusted_elapsed < Flash1_time:
-            # From Intro to Flash1: gradually light up from the bottom with twinkle using white and pink.
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
+        # Phase 2: Flash1 to PianoStarts.
         elif adjusted_elapsed < PianoStarts_time:
-            # From Flash1 until PianoStarts: run the initial slow spiral effect.
             brightness_factor = max_brightness_factor
             spiral_speed = 0.05
             update_slow_spiral(spiral_offset, brightness_factor)
             spiral_offset += spiral_speed
+        # Phase 3: PianoStarts to BeatDrops.
         elif adjusted_elapsed < BeatDrops_time:
-            # From PianoStarts until BeatDrops: independent fast pulse effect.
             if pulse_start_time is None:
                 pulse_start_time = current_time
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
-        elif adjusted_elapsed < allI_time:
-            # From BeatDrops until "All I...", run fast spiral effect.
+        # Phase 4: BeatDrops to you... Youuuuuu (first occurrence).
+        elif adjusted_elapsed < youuuu_label_1:
             brightness_factor = max_brightness_factor
-            if ((adjusted_elapsed >= 63.370245 and adjusted_elapsed < 69.777088) or
-                (adjusted_elapsed >= 76.841043 and adjusted_elapsed < 82.180078)):
-                accent = True
-            else:
-                accent = False
+            # Use original back vocal intervals for accent in phase 4.
+            accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase4)
             update_fast_spiral(spiral_offset, brightness_factor, accent)
+            spiral_offset += fast_spiral_speed
+        # Phase 5: you... Youuuuuu (first) to you... Youuuuuu (second).
+        elif adjusted_elapsed < youuuu_label_2:
+            brightness_factor = max_brightness_factor
+            # Use new back vocal intervals for accent in phase 5.
+            accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase5)
+            update_fast_spiral_new(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
         else:
             break
