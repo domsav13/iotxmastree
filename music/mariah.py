@@ -14,25 +14,26 @@ LATENCY_OFFSET = -0.5
 # ====================================================
 # LED Tree Configuration
 # ====================================================
-df = pd.read_csv('coordinates.csv')  # CSV should have columns: X, Y, Z.
+df = pd.read_csv('coordinates.csv')  # CSV must have columns: X, Y, Z.
 LED_COUNT = len(df)
 min_z = df["Z"].min()
 max_z = df["Z"].max()
 
 # LED strip configuration:
-LED_PIN         = 18       
-LED_FREQ_HZ     = 800000   
-LED_DMA         = 10       
-LED_BRIGHTNESS  = 125      
-LED_INVERT      = False    
-LED_CHANNEL     = 0        
+LED_PIN         = 18
+LED_FREQ_HZ     = 800000
+LED_DMA         = 10
+LED_BRIGHTNESS  = 125
+LED_INVERT      = False
+LED_CHANNEL     = 0
 
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
                    LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()
 
 # ====================================================
-# Timeline (timestamps in seconds from mariah_labels.txt)
+# Timeline for Song Events (timestamps in seconds)
+# (Timestamps from mariah_labels.txt)
 # ====================================================
 buildStart_time       = 5.907982
 Flash1_time           = 7.167060
@@ -40,42 +41,40 @@ LastIntroFlash_time   = 39.028514
 Youuu_time            = 49.858378
 PianoStarts_time      = 50.844046
 BeatDrops_time        = 57.250889
-# Phase 4 ends at the first "you... Youuuuuu" label:
-youuuu_label_1        = 98.449425
-# Phase 5 runs from youuuu_label_1 until BridgeStart:
-BridgeStart_time      = 147.005028
-BridgeEnd_time        = 171.383597
-# After BridgeEnd, Phase 7 runs until FinalAll...
-FinalAll_time         = 195.084983
+allI_time             = 92.284925   # "All I..." label
+youuuu_label_1        = 98.449425   # First "you... Youuuuuu" label (Phase 4 ends)
+BridgeStart_time      = 147.005028  # BridgeStart label (Phase 5 ends, Phase 6 begins)
+BridgeEnd_time        = 171.383597  # BridgeEnd label (Phase 6 ends)
+FinalAll_time         = 195.084983  # "FinalAll..." label (Phase 7 ends)
 
-# Back vocal intervals (phase 4):
+# Back vocal intervals for Phase 4 (original):
 BackVocalsStart       = 63.370245
 BackVocalsStop        = 69.777088
 BackVocal2Start       = 76.841043
 BackVocal2Stop        = 82.180078
 back_vocals_phase4 = [(BackVocalsStart, BackVocalsStop), (BackVocal2Start, BackVocal2Stop)]
 
-# Back vocal intervals (phase 5):
+# Back vocal intervals for Phase 5 (new):
 BackVocal3Start       = 108.247176
 BackVocal3Stop        = 114.172523
 BackVocal4Start       = 121.508666
 BackVocal4Stop        = 127.095422
 back_vocals_phase5 = [(BackVocal3Start, BackVocal3Stop), (BackVocal4Start, BackVocal4Stop)]
 
-# Back vocal interval for phase 7:
+# Back vocal interval for Phase 7:
 BackVocal4Start_phase7 = 179.114763
 BackVocal4Stop_phase7  = 184.757951
 back_vocals_phase7 = [(BackVocal4Start_phase7, BackVocal4Stop_phase7)]
 
 # ====================================================
-# Hyperparameters for Brightness Ramp
-low_brightness_factor  = 0.2
-max_brightness_factor  = 1.0
-post_flash_brightness  = 0.3
+# Hyperparameters for Brightness Ramp and Spiral Speeds
+# ====================================================
+low_brightness_factor  = 0.2   # Before buildStart
+max_brightness_factor  = 1.0   # Full brightness
+post_flash_brightness  = 0.3   # Immediately after LastIntroFlash
 
-# Spiral speeds:
-fast_spiral_speed = 0.2  # For phases 4 and 5.
-fast_spiral_speed2 = 0.3 # For phase 7 (faster spiral)
+fast_spiral_speed = 0.2   # For Phases 4 and 5
+fast_spiral_speed2 = 0.3  # For Phase 7 (faster spiral)
 
 # ====================================================
 # Color Helpers (for GRB strips)
@@ -92,7 +91,7 @@ gold_color   = intended_color((255, 215, 0))
 yellow_color = intended_color((255, 255, 0))
 pink_color   = intended_color((255, 105, 180))
 
-# Accent palette for phase 4:
+# Accent palette for Phase 4:
 accent_orange     = intended_color((255, 165, 0))
 accent_pink       = pink_color
 accent_purple     = intended_color((147, 112, 219))
@@ -102,14 +101,18 @@ accent_green      = intended_color((144, 238, 144))
 accent_palette = [accent_orange, accent_pink, accent_purple,
                   yellow_color, accent_light_blue, accent_red, accent_green]
 
-# New palette for phase 5 (new normal palette: light blue, pink, purple):
+# New palette for Phase 5 (new normal palette: light blue, pink, purple):
 new_light_blue = intended_color((173, 216, 230))
 new_palette = [new_light_blue, pink_color, accent_purple]
 new_accent_palette = [red_color, green_color, yellow_color, white_color]
 
-# Bright palette for phase 6 (BridgeStart → BridgeEnd):
-bright_blue = intended_color((0, 191, 255))  # Deep sky blue
-bright_palette = [white_color, yellow_color, pink_color, bright_blue, green_color, red_color]
+# Bright palette for Phase 6 (BridgeStart → BridgeEnd): bright colors
+bright_palette = [white_color, yellow_color, pink_color, intended_color((0,191,255)), green_color, red_color]  # Deep sky blue used for blue
+
+# New accent palette for Phase 7: we want accent colors of pink, orange, and light blue.
+def phase7_accent_palette():
+    # Note: We'll compute these fresh each time.
+    return [pink_color, intended_color((255, 165, 0)), intended_color((173, 216, 230))]
 
 def scale_color(color, factor):
     blue  = color & 0xFF
@@ -118,22 +121,21 @@ def scale_color(color, factor):
     return Color(int(red * factor), int(green * factor), int(blue * factor))
 
 # ====================================================
-# New Effect: Bridge Twinkle
+# New Effect: Bridge Twinkle Effect (Phase 6)
 # ====================================================
 def bridge_twinkle_effect(adjusted_elapsed, bridge_start, bridge_end):
-    # Compute ramp factor (from 0.2 to 1.0) over the Bridge interval.
+    # Ramp brightness from 0.2 at BridgeStart to 1.0 at BridgeEnd.
     ramp_fraction = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)
     brightness_factor = 0.2 + ramp_fraction * (1.0 - 0.2)
     for i in range(LED_COUNT):
         twinkle = random.uniform(0.8, 1.0)
-        # Choose a random color from the bright palette.
         chosen_color = random.choice(bright_palette)
         color = scale_color(chosen_color, brightness_factor * twinkle)
         strip.setPixelColor(i, color)
     strip.show()
 
 # ====================================================
-# Existing Effects
+# New Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle (Phase 1)
 # ====================================================
 def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
     fraction = min(adjusted_elapsed / flash1_time, 1.0)
@@ -149,6 +151,9 @@ def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
         strip.setPixelColor(i, color)
     strip.show()
 
+# ====================================================
+# Existing Effects: flash, pulse, spiral
+# ====================================================
 def flash_all():
     for i in range(LED_COUNT):
         strip.setPixelColor(i, gold_color)
@@ -227,19 +232,38 @@ def update_fast_spiral_new(offset, brightness_factor=1.0, accent=False):
             strip.setPixelColor(i, scaled)
     strip.show()
 
+def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
+    # For Phase 7, if accent is True, use a custom accent palette: [pink, orange, light blue].
+    phase7_accent = [pink_color, intended_color((255,165,0)), intended_color((173,216,230))]
+    if accent:
+        mod_val = len(phase7_accent)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = phase7_accent[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    else:
+        # Use standard palette: red, green, white.
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % 3
+            base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    strip.show()
+
 # ====================================================
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    # Define phase boundaries:
-    # Phase 1: Intro → Flash1
-    # Phase 2: Flash1 → PianoStarts
-    # Phase 3: PianoStarts → BeatDrops
-    # Phase 4: BeatDrops → you... Youuuuuu (first) [using standard fast spiral, accent with back vocals from phase 4]
-    # Phase 5: you... Youuuuuu (first) → BridgeStart [using new palette; accent with back vocals from phase 5]
-    # Phase 6: BridgeStart → BridgeEnd [twinkle effect with bright palette]
-    # Phase 7: BridgeEnd → FinalAll... [fast spiral with standard palette at faster speed; accent during BackVocal4 phase]
-    FinalAll_time         = 195.084983
+    # Phase boundaries:
+    # Phase 1: Intro → Flash1.
+    # Phase 2: Flash1 → PianoStarts.
+    # Phase 3: PianoStarts → BeatDrops.
+    # Phase 4: BeatDrops → you... Youuuuuu (first) using standard fast spiral with accent from back vocals (phase 4).
+    # Phase 5: you... Youuuuuu (first) → BridgeStart using new fast spiral with new palette (accent with phase 5 intervals).
+    # Phase 6: BridgeStart → BridgeEnd: Bridge twinkle effect.
+    # Phase 7: BridgeEnd → FinalAll...: fast spiral (standard palette at faster speed, with phase 7 accent during its back vocal interval).
+    FinalAll_time = 195.084983
 
     start_time = time.time()
     triggered_events = set()
@@ -252,7 +276,7 @@ def run_led_show():
         current_time = time.time()
         adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
-        # Trigger events from the events list.
+        # Trigger timeline events.
         for event in events:
             if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                 label = event["label"]
@@ -265,43 +289,42 @@ def run_led_show():
                     pulse_start_time = current_time
                 triggered_events.add(label)
 
-        # Phase 1: Intro to Flash1.
+        # Phase 1: Intro → Flash1.
         if adjusted_elapsed < Flash1_time:
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
-        # Phase 2: Flash1 to PianoStarts.
+        # Phase 2: Flash1 → PianoStarts.
         elif adjusted_elapsed < PianoStarts_time:
             brightness_factor = max_brightness_factor
             spiral_speed = 0.05
             update_slow_spiral(spiral_offset, brightness_factor)
             spiral_offset += spiral_speed
-        # Phase 3: PianoStarts to BeatDrops.
+        # Phase 3: PianoStarts → BeatDrops.
         elif adjusted_elapsed < BeatDrops_time:
             if pulse_start_time is None:
                 pulse_start_time = current_time
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
-        # Phase 4: BeatDrops to you... Youuuuuu (first) (from BeatDrops to 98.449425 sec).
+        # Phase 4: BeatDrops → you... Youuuuuu (first) [up to youuuu_label_1].
         elif adjusted_elapsed < youuuu_label_1:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase4)
             update_fast_spiral(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
-        # Phase 5: you... Youuuuuu (first) to BridgeStart.
+        # Phase 5: you... Youuuuuu (first) → BridgeStart.
         elif adjusted_elapsed < BridgeStart_time:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase5)
             update_fast_spiral_new(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
-        # Phase 6: BridgeStart to BridgeEnd.
+        # Phase 6: BridgeStart → BridgeEnd.
         elif adjusted_elapsed < BridgeEnd_time:
             bridge_twinkle_effect(adjusted_elapsed, BridgeStart_time, BridgeEnd_time)
-        # Phase 7: BridgeEnd to FinalAll...
+        # Phase 7: BridgeEnd → FinalAll...
         elif adjusted_elapsed < FinalAll_time:
             brightness_factor = max_brightness_factor
-            # For phase 7, if within BackVocal4 interval (phase 7):
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase7)
-            update_fast_spiral(spiral_offset, brightness_factor, accent)
+            update_fast_spiral_phase7(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed2
         else:
             break
