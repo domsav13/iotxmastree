@@ -32,7 +32,7 @@ strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
 strip.begin()
 
 # ====================================================
-# Timeline for Song Events (timestamps in seconds from mariah_labels.txt)
+# Timeline for Song Events (timestamps in seconds)
 # ====================================================
 buildStart_time       = 5.907982
 Flash1_time           = 7.167060
@@ -41,7 +41,7 @@ Youuu_time            = 49.858378
 PianoStarts_time      = 50.844046
 BeatDrops_time        = 57.250889
 allI_time             = 92.284925   # "All I..." label
-youuuu_label_1        = 98.449425   # First "you... Youuuuuu" label (Phase 4 ends)
+youuuu_label_1        = 98.449425   # first "you... Youuuuuu" label (Phase 4 ends)
 BridgeStart_time      = 147.005028  # BridgeStart label (Phase 5 ends, Phase 6 begins)
 BridgeEnd_time        = 171.383597  # BridgeEnd label (Phase 6 ends)
 FinalAll_time         = 195.084983  # "FinalAll..." label (Phase 7 ends)
@@ -104,7 +104,7 @@ max_brightness_factor  = 1.0
 post_flash_brightness  = 0.3
 
 fast_spiral_speed = 0.2   # For Phases 4 and 5.
-fast_spiral_speed2 = 0.3  # For Phase 7 (faster)
+fast_spiral_speed2 = 0.3  # For Phase 7.
 
 # ====================================================
 # Color Helpers (for GRB strips)
@@ -130,7 +130,11 @@ accent_palette = [accent_orange, accent_pink, accent_purple,
                   yellow_color, accent_light_blue, accent_red, accent_green]
 
 new_light_blue = intended_color((173, 216, 230))
-new_palette = [new_light_blue, pink_color, accent_purple]
+# Expanded new palette for Phase 5: adding additional complementary colors.
+pastel_green = intended_color((100, 240, 100))
+light_salmon = intended_color((255, 160, 122))
+lavender = intended_color((230, 230, 250))
+new_palette = [new_light_blue, pink_color, accent_purple, pastel_green, light_salmon, lavender]
 new_accent_palette = [red_color, green_color, yellow_color, white_color]
 
 bright_palette = [white_color, yellow_color, pink_color, intended_color((0,191,255)), green_color, red_color]
@@ -141,7 +145,9 @@ def scale_color(color, factor):
     green = (color >> 16) & 0xFF
     return Color(int(red * factor), int(green * factor), int(blue * factor))
 
-# New helper: Blend two colors given blending factor t (0 <= t <= 1).
+# ====================================================
+# New Helper: Blend Two Colors (for accent blending)
+# ====================================================
 def blend_colors(c1, c2, t):
     r1 = (c1 >> 8) & 0xFF
     g1 = (c1 >> 16) & 0xFF
@@ -155,20 +161,26 @@ def blend_colors(c1, c2, t):
     return Color(r, g, b)
 
 # ====================================================
-# New Effect: Bridge Twinkle Effect (Phase 6)
+# New Effect: Bridge Transition Twinkle (Phase 6)
 # ====================================================
-def bridge_twinkle_effect(adjusted_elapsed, bridge_start, bridge_end):
-    ramp_fraction = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)
-    brightness_factor = 0.2 + ramp_fraction * (1.0 - 0.2)
+def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset, brightness_factor):
+    # t ramps from 0 (at BridgeStart) to 1 (at BridgeEnd).
+    t = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)
     for i in range(LED_COUNT):
-        twinkle = random.uniform(0.8, 1.0)
-        chosen_color = random.choice(bright_palette)
-        color = scale_color(chosen_color, brightness_factor * twinkle)
-        strip.setPixelColor(i, color)
+        # Compute the spiral color using the new_palette (Phase 5 style).
+        mod_val = len(new_palette)
+        color_index = (i + int(offset)) % mod_val
+        spiral_color = scale_color(new_palette[color_index], brightness_factor)
+        # Compute a random twinkle color from the bright_palette.
+        random_twinkle = random.uniform(0.8, 1.0)
+        twinkle_color = scale_color(random.choice(bright_palette), brightness_factor * random_twinkle)
+        # Blend the two based on t.
+        final_color = blend_colors(spiral_color, twinkle_color, t)
+        strip.setPixelColor(i, final_color)
     strip.show()
 
 # ====================================================
-# New Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle (Phase 1)
+# Existing Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle (Phase 1)
 # ====================================================
 def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
     fraction = min(adjusted_elapsed / flash1_time, 1.0)
@@ -233,38 +245,39 @@ def update_slow_spiral(offset, brightness_factor=1.0):
     strip.show()
 
 def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
-    # For standard fast spiral (Phase 4).
-    for i in range(LED_COUNT):
-        color_index = (i + int(offset)) % 3
-        standard_base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
-        if accent:
-            # Blend the standard base with an accent color
-            accent_index = (i + int(offset)) % len(accent_palette)
-            accent_color_value = accent_palette[accent_index]
-            blended = blend_colors(standard_base, accent_color_value, 0.5)  # 50/50 blend
-            final_color = scale_color(blended, brightness_factor)
-        else:
-            final_color = scale_color(standard_base, brightness_factor)
-        strip.setPixelColor(i, final_color)
+    if accent:
+        mod_val = len(accent_palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = accent_palette[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    else:
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % 3
+            base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
     strip.show()
 
 def update_fast_spiral_new(offset, brightness_factor=1.0, accent=False):
-    # For fast spiral Phase 5 using new palette.
-    for i in range(LED_COUNT):
-        color_index = (i + int(offset)) % len(new_palette)
-        standard_base = new_palette[color_index]
-        if accent:
-            accent_index = (i + int(offset)) % len(new_accent_palette)
-            accent_color_value = new_accent_palette[accent_index]
-            blended = blend_colors(standard_base, accent_color_value, 0.5)
-            final_color = scale_color(blended, brightness_factor)
-        else:
-            final_color = scale_color(standard_base, brightness_factor)
-        strip.setPixelColor(i, final_color)
+    if accent:
+        mod_val = len(new_accent_palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = new_accent_palette[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
+    else:
+        mod_val = len(new_palette)
+        for i in range(LED_COUNT):
+            color_index = (i + int(offset)) % mod_val
+            base = new_palette[color_index]
+            scaled = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, scaled)
     strip.show()
 
 def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
-    # For Phase 7, standard palette is used; if accent is True, blend with a custom accent palette.
     phase7_accent = [pink_color, intended_color((255,165,0)), intended_color((173,216,230))]
     for i in range(LED_COUNT):
         color_index = (i + int(offset)) % 3
@@ -280,33 +293,18 @@ def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
     strip.show()
 
 # ====================================================
-# New Helper: Blend Two Colors
-# ====================================================
-def blend_colors(c1, c2, t):
-    r1 = (c1 >> 8) & 0xFF
-    g1 = (c1 >> 16) & 0xFF
-    b1 = c1 & 0xFF
-    r2 = (c2 >> 8) & 0xFF
-    g2 = (c2 >> 16) & 0xFF
-    b2 = c2 & 0xFF
-    r = int(r1 * (1-t) + r2 * t)
-    g = int(g1 * (1-t) + g2 * t)
-    b = int(b1 * (1-t) + b2 * t)
-    return Color(r, g, b)
-
-# ====================================================
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    global events  # Ensure that the global events variable is used.
+    global events  # Use the global events variable.
     # Phase boundaries:
     # Phase 1: Intro → Flash1.
     # Phase 2: Flash1 → PianoStarts.
     # Phase 3: PianoStarts → BeatDrops.
     # Phase 4: BeatDrops → you... Youuuuuu (first) [standard fast spiral, accent with phase 4 intervals].
-    # Phase 5: you... Youuuuuu (first) → BridgeStart [new fast spiral with new palette, accent with phase 5 intervals].
-    # Phase 6: BridgeStart → BridgeEnd [Bridge twinkle effect].
-    # Phase 7: BridgeEnd → FinalAll... [fast spiral (standard) at faster speed, accent during phase 7 interval].
+    # Phase 5: you... Youuuuuu (first) → BridgeStart [fast spiral with new palette, accent with phase 5 intervals].
+    # Phase 6: BridgeStart → BridgeEnd [bridge transition effect].
+    # Phase 7: BridgeEnd → FinalAll... [fast spiral (standard) at faster speed; accent during phase 7 interval].
     FinalAll_time = 195.084983
 
     start_time = time.time()
@@ -356,7 +354,9 @@ def run_led_show():
             update_fast_spiral_new(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
         elif adjusted_elapsed < BridgeEnd_time:
-            bridge_twinkle_effect(adjusted_elapsed, BridgeStart_time, BridgeEnd_time)
+            bridge_transition_effect(adjusted_elapsed, BridgeStart_time, BridgeEnd_time, spiral_offset, max_brightness_factor)
+            # Optionally increment spiral_offset if desired.
+            spiral_offset += 0.01
         elif adjusted_elapsed < FinalAll_time:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase7)
@@ -369,6 +369,21 @@ def run_led_show():
 
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
+
+# ====================================================
+# New Effect: Bridge Transition Twinkle (Phase 6)
+# ====================================================
+def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset, brightness_factor):
+    t = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)  # 0 at start, 1 at end.
+    for i in range(LED_COUNT):
+        mod_val = len(new_palette)
+        color_index = (i + int(offset)) % mod_val
+        spiral_color = scale_color(new_palette[color_index], brightness_factor)
+        random_twinkle = random.uniform(0.8, 1.0)
+        twinkle_color = scale_color(random.choice(bright_palette), brightness_factor * random_twinkle)
+        final_color = blend_colors(spiral_color, twinkle_color, t)
+        strip.setPixelColor(i, final_color)
     strip.show()
 
 # ====================================================
