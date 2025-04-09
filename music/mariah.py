@@ -32,7 +32,7 @@ strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
 strip.begin()
 
 # ====================================================
-# Timeline for Song Events (timestamps in seconds)
+# Timeline for Song Events (timestamps in seconds from mariah_labels.txt)
 # ====================================================
 buildStart_time       = 5.907982
 Flash1_time           = 7.167060
@@ -41,26 +41,30 @@ Youuu_time            = 49.858378
 PianoStarts_time      = 50.844046
 BeatDrops_time        = 57.250889
 allI_time             = 92.284925   # "All I..." label
-youuuu_label_1        = 98.449425   # first "you... Youuuuuu" label (Phase 4 ends)
-BridgeStart_time      = 147.005028  # BridgeStart label (Phase 5 ends, Phase 6 begins)
-BridgeEnd_time        = 171.383597  # BridgeEnd label (Phase 6 ends)
-FinalAll_time         = 195.084983  # "FinalAll..." label (Phase 7 ends)
+youuuu_label_1        = 98.449425   # first "you... Youuuuuu"
+BridgeStart_time      = 147.005028  # BridgeStart
+BridgeEnd_time        = 171.383597  # BridgeEnd
+FinalAll_time         = 195.084983  # "FinalAll..." label
+# New final section events:
+youuuuHighNote1       = 201.574649
+HighNote2             = 207.951450
+HighNote3             = 214.949002
+FadeOut_time          = 219.068529
+End_time              = 237.126728
 
-# Back vocal intervals for Phase 4:
+# Back vocal intervals for previous phases:
 BackVocalsStart       = 63.370245
 BackVocalsStop        = 69.777088
 BackVocal2Start       = 76.841043
 BackVocal2Stop        = 82.180078
 back_vocals_phase4 = [(BackVocalsStart, BackVocalsStop), (BackVocal2Start, BackVocal2Stop)]
 
-# Back vocal intervals for Phase 5:
 BackVocal3Start       = 108.247176
 BackVocal3Stop        = 114.172523
 BackVocal4Start       = 121.508666
 BackVocal4Stop        = 127.095422
 back_vocals_phase5 = [(BackVocal3Start, BackVocal3Stop), (BackVocal4Start, BackVocal4Stop)]
 
-# Back vocal interval for Phase 7:
 BackVocal4Start_phase7 = 179.114763
 BackVocal4Stop_phase7  = 184.757951
 back_vocals_phase7 = [(BackVocal4Start_phase7, BackVocal4Stop_phase7)]
@@ -86,6 +90,11 @@ events = [
     {"time": BridgeStart_time,   "label": "BridgeStart"},
     {"time": BridgeEnd_time,     "label": "BridgeEnd"},
     {"time": FinalAll_time,      "label": "FinalAll..."},
+    {"time": youuuuHighNote1,    "label": "youuuuHighNote1"},
+    {"time": HighNote2,          "label": "HighNote2"},
+    {"time": HighNote3,          "label": "HighNote3"},
+    {"time": FadeOut_time,       "label": "FadeOut"},
+    {"time": End_time,           "label": "End"},
     {"time": BackVocalsStart,    "label": "BackVocalsStart"},
     {"time": BackVocalsStop,     "label": "BackVocalsStop"},
     {"time": BackVocal2Start,    "label": "BackVocal2Start"},
@@ -104,7 +113,11 @@ max_brightness_factor  = 1.0
 post_flash_brightness  = 0.3
 
 fast_spiral_speed = 0.2   # For Phases 4 and 5.
-fast_spiral_speed2 = 0.3  # For Phase 7.
+fast_spiral_speed2 = 0.3  # For Phase 7 (faster)
+
+# Global final phase parameters (Phase 8 & Phase 9).
+final_spiral_speed = 0.2   # Base speed for final section.
+final_brightness = 0.8     # Base brightness for final section.
 
 # ====================================================
 # Color Helpers (for GRB strips)
@@ -130,7 +143,7 @@ accent_palette = [accent_orange, accent_pink, accent_purple,
                   yellow_color, accent_light_blue, accent_red, accent_green]
 
 new_light_blue = intended_color((173, 216, 230))
-# Expanded new palette for Phase 5: adding additional complementary colors.
+# Expanded new palette for Phase 5 with extra colors:
 pastel_green = intended_color((100, 240, 100))
 light_salmon = intended_color((255, 160, 122))
 lavender = intended_color((230, 230, 250))
@@ -146,7 +159,7 @@ def scale_color(color, factor):
     return Color(int(red * factor), int(green * factor), int(blue * factor))
 
 # ====================================================
-# New Helper: Blend Two Colors (for accent blending)
+# New Helper: Blend Two Colors for Complementary Accent
 # ====================================================
 def blend_colors(c1, c2, t):
     r1 = (c1 >> 8) & 0xFF
@@ -161,43 +174,32 @@ def blend_colors(c1, c2, t):
     return Color(r, g, b)
 
 # ====================================================
-# New Effect: Bridge Transition Twinkle (Phase 6)
+# New Effect: Final Section Spiral (Phase 8 and 9)
 # ====================================================
-def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset, brightness_factor):
-    # t ramps from 0 (at BridgeStart) to 1 (at BridgeEnd).
-    t = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)
+def update_final_spiral(offset, brightness_factor, base_speed):
+    # Compute a red/white spiral that samples green at 50% (blend standard color with green).
+    # We'll use a simple alternating palette: even-index LED gets red, odd-index gets white.
+    # Then we blend that with green.
     for i in range(LED_COUNT):
-        # Compute the spiral color using the new_palette (Phase 5 style).
-        mod_val = len(new_palette)
-        color_index = (i + int(offset)) % mod_val
-        spiral_color = scale_color(new_palette[color_index], brightness_factor)
-        # Compute a random twinkle color from the bright_palette.
-        random_twinkle = random.uniform(0.8, 1.0)
-        twinkle_color = scale_color(random.choice(bright_palette), brightness_factor * random_twinkle)
-        # Blend the two based on t.
-        final_color = blend_colors(spiral_color, twinkle_color, t)
+        base = red_color if (i % 2 == 0) else white_color
+        blended = blend_colors(base, green_color, 0.5)  # 50% blend
+        final_color = scale_color(blended, brightness_factor)
+        strip.setPixelColor(i, final_color)
+    strip.show()
+
+def update_final_fadeout(offset, brightness_factor, fade_progress):
+    # Decrease brightness and speed gradually. fade_progress: 0 -> 1.
+    current_brightness = brightness_factor * (1 - fade_progress)
+    # We can further slow the spiral by not updating offset much.
+    for i in range(LED_COUNT):
+        base = red_color if (i % 2 == 0) else white_color
+        blended = blend_colors(base, green_color, 0.5)
+        final_color = scale_color(blended, current_brightness)
         strip.setPixelColor(i, final_color)
     strip.show()
 
 # ====================================================
-# Existing Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle (Phase 1)
-# ====================================================
-def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
-    fraction = min(adjusted_elapsed / flash1_time, 1.0)
-    for i in range(LED_COUNT):
-        z = df.iloc[i]["Z"]
-        norm_z = (z - min_z) / (max_z - min_z)
-        if norm_z <= fraction:
-            chosen_color = random.choice([white_color, pink_color])
-            twinkle = random.uniform(0.8, 1.0)
-            color = scale_color(chosen_color, twinkle)
-        else:
-            color = Color(0, 0, 0)
-        strip.setPixelColor(i, color)
-    strip.show()
-
-# ====================================================
-# Existing Effects: Flash, Pulse, Slow Spiral, Fast Spiral, etc.
+# Existing Effects (unchanged)
 # ====================================================
 def flash_all():
     for i in range(LED_COUNT):
@@ -296,16 +298,19 @@ def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    global events  # Use the global events variable.
-    # Phase boundaries:
-    # Phase 1: Intro → Flash1.
-    # Phase 2: Flash1 → PianoStarts.
-    # Phase 3: PianoStarts → BeatDrops.
-    # Phase 4: BeatDrops → you... Youuuuuu (first) [standard fast spiral, accent with phase 4 intervals].
-    # Phase 5: you... Youuuuuu (first) → BridgeStart [fast spiral with new palette, accent with phase 5 intervals].
-    # Phase 6: BridgeStart → BridgeEnd [bridge transition effect].
-    # Phase 7: BridgeEnd → FinalAll... [fast spiral (standard) at faster speed; accent during phase 7 interval].
-    FinalAll_time = 195.084983
+    global events  # Ensure global events is referenced.
+    # Define final section phase boundaries:
+    # Phase 8: FinalAll... → FadeOut.
+    # Phase 9: FadeOut → End.
+    FadeOut_time = 219.068529
+    End_time = 237.126728
+
+    # Also define final section start (Phase 8 starts at FinalAll_time).
+    # Our final spiral phase (Phase 8) uses a red/white spiral blended with green.
+    # We'll use global variables to modify speed and brightness at each high note.
+    global final_spiral_speed, final_brightness
+    final_spiral_speed = 0.2   # initial value
+    final_brightness = 0.8     # initial value
 
     start_time = time.time()
     triggered_events = set()
@@ -318,6 +323,7 @@ def run_led_show():
         current_time = time.time()
         adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
+        # Trigger timeline events.
         for event in events:
             if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                 label = event["label"]
@@ -328,8 +334,19 @@ def run_led_show():
                     pass
                 elif "PianoStarts" in label:
                     pulse_start_time = current_time
+                # Update final section parameters when high note events occur:
+                elif label == "youuuuHighNote1":
+                    final_spiral_speed = 0.3
+                    final_brightness = 0.9
+                elif label == "HighNote2":
+                    final_spiral_speed = 0.4
+                    final_brightness = 1.0
+                elif label == "HighNote3":
+                    final_spiral_speed = 0.5
+                    final_brightness = 1.0
                 triggered_events.add(label)
 
+        # Previous phases:
         if adjusted_elapsed < Flash1_time:
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
         elif adjusted_elapsed < PianoStarts_time:
@@ -343,25 +360,20 @@ def run_led_show():
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
-        elif adjusted_elapsed < youuuu_label_1:
+        # Phase 4: from BeatDrops to FinalAll...
+        elif adjusted_elapsed < FinalAll_time:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase4)
             update_fast_spiral(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
-        elif adjusted_elapsed < BridgeStart_time:
-            brightness_factor = max_brightness_factor
-            accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase5)
-            update_fast_spiral_new(spiral_offset, brightness_factor, accent)
-            spiral_offset += fast_spiral_speed
-        elif adjusted_elapsed < BridgeEnd_time:
-            bridge_transition_effect(adjusted_elapsed, BridgeStart_time, BridgeEnd_time, spiral_offset, max_brightness_factor)
-            # Optionally increment spiral_offset if desired.
-            spiral_offset += 0.01
-        elif adjusted_elapsed < FinalAll_time:
-            brightness_factor = max_brightness_factor
-            accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase7)
-            update_fast_spiral_phase7(spiral_offset, brightness_factor, accent)
-            spiral_offset += fast_spiral_speed2
+        # Phase 8: FinalAll... to FadeOut — final spiral section with red/white spiral sampling green.
+        elif adjusted_elapsed < FadeOut_time:
+            update_final_spiral(spiral_offset, final_brightness, final_spiral_speed)
+            spiral_offset += final_spiral_speed
+        # Phase 9: FadeOut to End — fade out by decreasing speed and brightness.
+        elif adjusted_elapsed < End_time:
+            fade_progress = (adjusted_elapsed - FadeOut_time) / (End_time - FadeOut_time)
+            update_final_fadeout(spiral_offset, final_brightness, fade_progress)
         else:
             break
 
@@ -369,21 +381,6 @@ def run_led_show():
 
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
-    strip.show()
-
-# ====================================================
-# New Effect: Bridge Transition Twinkle (Phase 6)
-# ====================================================
-def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset, brightness_factor):
-    t = (adjusted_elapsed - bridge_start) / (bridge_end - bridge_start)  # 0 at start, 1 at end.
-    for i in range(LED_COUNT):
-        mod_val = len(new_palette)
-        color_index = (i + int(offset)) % mod_val
-        spiral_color = scale_color(new_palette[color_index], brightness_factor)
-        random_twinkle = random.uniform(0.8, 1.0)
-        twinkle_color = scale_color(random.choice(bright_palette), brightness_factor * random_twinkle)
-        final_color = blend_colors(spiral_color, twinkle_color, t)
-        strip.setPixelColor(i, final_color)
     strip.show()
 
 # ====================================================
@@ -398,7 +395,42 @@ def index():
     <!doctype html>
     <html>
       <head>
-        <title>LED Light Show Synchronized to Song</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>LED Light Show</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+          }
+          h1 {
+            font-size: 1.8em;
+            margin-top: 10px;
+            color: #333;
+          }
+          button {
+            padding: 15px 25px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            margin-top: 20px;
+            width: 80%;
+            max-width: 300px;
+          }
+          button:active {
+            background-color: #45a049;
+          }
+          audio {
+            width: 90%;
+            max-width: 400px;
+            margin-top: 20px;
+          }
+        </style>
         <script>
           function startShow() {
             fetch('/start', {method: 'POST'})
