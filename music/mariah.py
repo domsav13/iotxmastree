@@ -9,7 +9,6 @@ from threading import Thread
 
 # ====================================================
 # Hyperparameter: Latency Offset (in seconds)
-# ====================================================
 LATENCY_OFFSET = -0.5
 
 # ====================================================
@@ -33,7 +32,7 @@ strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
 strip.begin()
 
 # ====================================================
-# Timeline for Song Events (timestamps in seconds from mariah_labels.txt)
+# Timeline for Song Events (timestamps from mariah_labels.txt)
 # ====================================================
 buildStart_time       = 5.907982
 Flash1_time           = 7.167060
@@ -117,16 +116,16 @@ post_flash_brightness  = 0.3
 fast_spiral_speed = 0.2   # For Phases 4 and 5.
 fast_spiral_speed2 = 0.3  # For Phase 7.
 
-# Global final phase parameters (for Phase 8/9 final section).
-final_spiral_speed = 0.2   # Initial speed.
-final_brightness = 0.8     # Initial brightness.
+# Global final phase parameters (for Phase 8 & 9 final section).
+final_spiral_speed = 0.2   # Base speed.
+final_brightness = 0.8     # Base brightness.
 
 # ====================================================
 # Color Helpers (for GRB strips)
 # ====================================================
 def intended_color(rgb_tuple):
     r, g, b = rgb_tuple
-    return Color(g, r, b)
+    return Color(g, r, b)  # Swap red and green
 
 red_color    = intended_color((255, 0, 0))
 green_color  = intended_color((0, 255, 0))
@@ -190,7 +189,7 @@ def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset,
     strip.show()
 
 # ====================================================
-# New Effect: Final Section Spiral (Phases 8 & 9)
+# New Effect: Final Section Spiral (Phase 8 & 9 Final Section)
 # ====================================================
 def update_final_spiral(offset, brightness_factor, base_speed):
     for i in range(LED_COUNT):
@@ -210,7 +209,7 @@ def update_final_fadeout(offset, brightness_factor, fade_progress):
     strip.show()
 
 # ====================================================
-# Existing Effect: Gradual Bottom-Up Lighting (Phase 1)
+# Existing Effect: Gradual Bottom-Up Lighting with White & Pink Twinkle (Phase 1)
 # ====================================================
 def gradual_bottom_up_effect(adjusted_elapsed, flash1_time):
     fraction = min(adjusted_elapsed / flash1_time, 1.0)
@@ -326,14 +325,14 @@ def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    global events  # Use the global events variable.
-    # Final section (Phase 8 & Phase 9) boundaries.
+    global events  # Ensure events is the global variable.
+    # Define Final Section (Phases 8 & 9) boundaries:
     # Phase 8: FinalAll... → FadeOut.
     # Phase 9: FadeOut → End.
-    FadeOut_time = FadeOut_time
-    End_time = End_time
-
-    # Final section parameters.
+    # The final section begins at FinalAll_time.
+    # For convenience, we use the global FadeOut_time and End_time defined earlier.
+    
+    # Global final phase parameters are already defined.
     global final_spiral_speed, final_brightness
     final_spiral_speed = 0.2
     final_brightness = 0.8
@@ -371,49 +370,42 @@ def run_led_show():
                     final_brightness = 1.0
                 triggered_events.add(label)
 
-        # Phase 1: Intro → Flash1.
+        # Phases 1-7 (pre-final section):
         if adjusted_elapsed < Flash1_time:
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
-        # Phase 2: Flash1 → PianoStarts.
         elif adjusted_elapsed < PianoStarts_time:
             brightness_factor = max_brightness_factor
             spiral_speed = 0.05
             update_slow_spiral(spiral_offset, brightness_factor)
             spiral_offset += spiral_speed
-        # Phase 3: PianoStarts → BeatDrops.
         elif adjusted_elapsed < BeatDrops_time:
             if pulse_start_time is None:
                 pulse_start_time = current_time
             pulse_elapsed = current_time - pulse_start_time
             pulse_speed = 3.0
             pulse_fast(pulse_elapsed, pulse_speed)
-        # Phase 4: BeatDrops → you... Youuuuuu (first).
         elif adjusted_elapsed < youuuu_label_1:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase4)
             update_fast_spiral(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
-        # Phase 5: you... Youuuuuu (first) → BridgeStart.
         elif adjusted_elapsed < BridgeStart_time:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase5)
             update_fast_spiral_new(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed
-        # Phase 6: BridgeStart → BridgeEnd (Bridge Transition).
         elif adjusted_elapsed < BridgeEnd_time:
             bridge_transition_effect(adjusted_elapsed, BridgeStart_time, BridgeEnd_time, spiral_offset, max_brightness_factor)
-            spiral_offset += 0.01  # small increment during transition
-        # Phase 7: BridgeEnd → FinalAll...
+            spiral_offset += 0.01
         elif adjusted_elapsed < FinalAll_time:
             brightness_factor = max_brightness_factor
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase7)
             update_fast_spiral_phase7(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed2
-        # Phase 8: FinalAll... → FadeOut (Final Section Spiral).
+        # Final Section: Phase 8 (FinalAll... → FadeOut) and Phase 9 (FadeOut → End)
         elif adjusted_elapsed < FadeOut_time:
             update_final_spiral(spiral_offset, final_brightness, final_spiral_speed)
             spiral_offset += final_spiral_speed
-        # Phase 9: FadeOut → End (Fade-out).
         elif adjusted_elapsed < End_time:
             fade_progress = (adjusted_elapsed - FadeOut_time) / (End_time - FadeOut_time)
             update_final_fadeout(spiral_offset, final_brightness, fade_progress)
@@ -427,7 +419,7 @@ def run_led_show():
     strip.show()
 
 # ====================================================
-# Flask Web Application
+# Flask Web Application (Mobile-Friendly UI)
 # ====================================================
 app = Flask(__name__)
 led_thread = None
