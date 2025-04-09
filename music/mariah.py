@@ -9,6 +9,7 @@ from threading import Thread
 
 # ====================================================
 # Hyperparameter: Latency Offset (in seconds)
+# ====================================================
 LATENCY_OFFSET = -0.5
 
 # ====================================================
@@ -116,16 +117,16 @@ post_flash_brightness  = 0.3
 fast_spiral_speed = 0.2   # For Phases 4 and 5.
 fast_spiral_speed2 = 0.3  # For Phase 7.
 
-# Global final phase parameters (for Phase 8 & 9 final section).
-final_spiral_speed = 0.2   # Base speed.
-final_brightness = 0.8     # Base brightness.
+# Global final phase parameters (for Final Section).
+final_spiral_speed = 0.2   # Initial final spiral speed.
+final_brightness = 0.8     # Initial final brightness.
 
 # ====================================================
-# Color Helpers (for GRB strips)
+# Color Helpers (for GRB strips) – GRB ordering assumed.
 # ====================================================
 def intended_color(rgb_tuple):
     r, g, b = rgb_tuple
-    return Color(g, r, b)  # Swap red and green
+    return Color(g, r, b)
 
 red_color    = intended_color((255, 0, 0))
 green_color  = intended_color((0, 255, 0))
@@ -147,6 +148,7 @@ new_light_blue = intended_color((173, 216, 230))
 pastel_green = intended_color((100, 240, 100))
 light_salmon = intended_color((255, 160, 122))
 lavender = intended_color((230, 230, 250))
+# Expanded new palette for Phase 5 with extra colors.
 new_palette = [new_light_blue, pink_color, accent_purple, pastel_green, light_salmon, lavender]
 new_accent_palette = [red_color, green_color, yellow_color, white_color]
 
@@ -159,7 +161,7 @@ def scale_color(color, factor):
     return Color(int(red * factor), int(green * factor), int(blue * factor))
 
 # ====================================================
-# New Helper: Blend Two Colors for Accent Blending
+# New Helper: Blend Two Colors for Complementary Accent
 # ====================================================
 def blend_colors(c1, c2, t):
     r1 = (c1 >> 8) & 0xFF
@@ -189,9 +191,10 @@ def bridge_transition_effect(adjusted_elapsed, bridge_start, bridge_end, offset,
     strip.show()
 
 # ====================================================
-# New Effect: Final Section Spiral (Phase 8 & 9 Final Section)
+# New Effect: Final Section Spiral and Fadeout (Phases 8 & 9)
 # ====================================================
 def update_final_spiral(offset, brightness_factor, base_speed):
+    # Create a red/white spiral that alternates red and white, then blend with green 50%.
     for i in range(LED_COUNT):
         base = red_color if (i % 2 == 0) else white_color
         blended = blend_colors(base, green_color, 0.5)
@@ -200,6 +203,7 @@ def update_final_spiral(offset, brightness_factor, base_speed):
     strip.show()
 
 def update_final_fadeout(offset, brightness_factor, fade_progress):
+    # Decrease brightness gradually, and simulate a slowing spiral by not updating offset much.
     current_brightness = brightness_factor * (1 - fade_progress)
     for i in range(LED_COUNT):
         base = red_color if (i % 2 == 0) else white_color
@@ -279,14 +283,18 @@ def update_fast_spiral(offset, brightness_factor=1.0, accent=False):
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % mod_val
             base = accent_palette[color_index]
-            scaled = scale_color(base, brightness_factor)
-            strip.setPixelColor(i, scaled)
+            # Blend the accent color with the standard color from the alternating red/green/white spiral.
+            standard_index = (i + int(offset)) % 3
+            standard_base = red_color if standard_index == 0 else green_color if standard_index == 1 else white_color
+            blended = blend_colors(standard_base, base, 0.5)
+            final_color = scale_color(blended, brightness_factor)
+            strip.setPixelColor(i, final_color)
     else:
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % 3
             base = red_color if color_index == 0 else green_color if color_index == 1 else white_color
-            scaled = scale_color(base, brightness_factor)
-            strip.setPixelColor(i, scaled)
+            final_color = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, final_color)
     strip.show()
 
 def update_fast_spiral_new(offset, brightness_factor=1.0, accent=False):
@@ -295,15 +303,18 @@ def update_fast_spiral_new(offset, brightness_factor=1.0, accent=False):
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % mod_val
             base = new_accent_palette[color_index]
-            scaled = scale_color(base, brightness_factor)
-            strip.setPixelColor(i, scaled)
+            standard_index = (i + int(offset)) % len(new_palette)
+            standard_base = new_palette[standard_index]
+            blended = blend_colors(standard_base, base, 0.5)
+            final_color = scale_color(blended, brightness_factor)
+            strip.setPixelColor(i, final_color)
     else:
         mod_val = len(new_palette)
         for i in range(LED_COUNT):
             color_index = (i + int(offset)) % mod_val
             base = new_palette[color_index]
-            scaled = scale_color(base, brightness_factor)
-            strip.setPixelColor(i, scaled)
+            final_color = scale_color(base, brightness_factor)
+            strip.setPixelColor(i, final_color)
     strip.show()
 
 def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
@@ -325,14 +336,11 @@ def update_fast_spiral_phase7(offset, brightness_factor=1.0, accent=False):
 # Main LED Synchronization Loop
 # ====================================================
 def run_led_show():
-    global events  # Ensure events is the global variable.
-    # Define Final Section (Phases 8 & 9) boundaries:
+    global events  # Use global events.
+    # Final Section boundaries:
     # Phase 8: FinalAll... → FadeOut.
     # Phase 9: FadeOut → End.
     # The final section begins at FinalAll_time.
-    # For convenience, we use the global FadeOut_time and End_time defined earlier.
-    
-    # Global final phase parameters are already defined.
     global final_spiral_speed, final_brightness
     final_spiral_speed = 0.2
     final_brightness = 0.8
@@ -348,7 +356,6 @@ def run_led_show():
         current_time = time.time()
         adjusted_elapsed = (current_time - start_time) + LATENCY_OFFSET
 
-        # Trigger timeline events.
         for event in events:
             if adjusted_elapsed >= event["time"] and event["label"] not in triggered_events:
                 label = event["label"]
@@ -359,6 +366,7 @@ def run_led_show():
                     pass
                 elif "PianoStarts" in label:
                     pulse_start_time = current_time
+                # Final section high note events:
                 elif label == "youuuuHighNote1":
                     final_spiral_speed = 0.3
                     final_brightness = 0.9
@@ -370,7 +378,7 @@ def run_led_show():
                     final_brightness = 1.0
                 triggered_events.add(label)
 
-        # Phases 1-7 (pre-final section):
+        # Phases 1-7 (Pre-Final Section):
         if adjusted_elapsed < Flash1_time:
             gradual_bottom_up_effect(adjusted_elapsed, Flash1_time)
         elif adjusted_elapsed < PianoStarts_time:
@@ -402,13 +410,16 @@ def run_led_show():
             accent = any(start <= adjusted_elapsed < stop for (start, stop) in back_vocals_phase7)
             update_fast_spiral_phase7(spiral_offset, brightness_factor, accent)
             spiral_offset += fast_spiral_speed2
-        # Final Section: Phase 8 (FinalAll... → FadeOut) and Phase 9 (FadeOut → End)
+        # Final Section Phase 8: FinalAll... → FadeOut (final spiral with red/white sampling green).
         elif adjusted_elapsed < FadeOut_time:
             update_final_spiral(spiral_offset, final_brightness, final_spiral_speed)
             spiral_offset += final_spiral_speed
+        # Final Section Phase 9: FadeOut → End (fade-out with deceleration).
         elif adjusted_elapsed < End_time:
             fade_progress = (adjusted_elapsed - FadeOut_time) / (End_time - FadeOut_time)
             update_final_fadeout(spiral_offset, final_brightness, fade_progress)
+            # Decrease spiral speed linearly during fadeout:
+            spiral_offset += final_spiral_speed * (1 - fade_progress)
         else:
             break
 
