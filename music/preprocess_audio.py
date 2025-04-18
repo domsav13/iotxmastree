@@ -2,15 +2,17 @@
 """
 preprocess_audio.py
 
-Preprocess a WAV audio file into frame‑level brightness & note color CSV.
+Preprocess a WAV audio file into frame‑level brightness & note color CSV,
+downsampling on load to avoid memory issues on the Pi.
 
 Usage:
-  1. Make sure you have a WAV:
+  1. Make sure you have a WAV (converted once externally):
        ffmpeg -i really_love.mp3 really_love.wav
   2. Run this script:
        python3 preprocess_audio.py \
          --input really_love.wav \
          --output really_love_frames.csv \
+         --sr 22050 \
          --frame_duration 0.04 \
          --overlap 0.5 \
          --rms_threshold 0.02
@@ -28,6 +30,7 @@ import librosa
 # Default settings
 DEFAULT_INPUT_WAV   = "really_love.wav"
 DEFAULT_OUTPUT_CSV  = "really_love_frames.csv"
+DEFAULT_SR          = 22050    # downsample rate in Hz
 DEFAULT_FRAME_SEC   = 0.04     # 40 ms
 DEFAULT_OVERLAP     = 0.5      # 50% overlap
 DEFAULT_RMS_THRESH  = 0.02     # 2% of max RMS
@@ -56,6 +59,8 @@ def parse_args():
                    help="Input WAV file (must already exist)")
     p.add_argument("-o", "--output",       default=DEFAULT_OUTPUT_CSV,
                    help="Output CSV file")
+    p.add_argument("--sr", type=int, default=DEFAULT_SR,
+                   help=f"Resample audio to this rate (Hz), default {DEFAULT_SR}")
     p.add_argument("-f", "--frame_duration", type=float, default=DEFAULT_FRAME_SEC,
                    help="Frame duration in seconds")
     p.add_argument("-l", "--overlap",      type=float, default=DEFAULT_OVERLAP,
@@ -74,8 +79,8 @@ def main():
         logging.error(f"Input file not found: {args.input}")
         sys.exit(1)
 
-    logging.info(f"Loading audio: {args.input}")
-    y, sr = librosa.load(args.input, sr=None)
+    logging.info(f"Loading audio at {args.sr:,d} Hz: {args.input}")
+    y, sr = librosa.load(args.input, sr=args.sr)
 
     # Frame/hop lengths
     frame_len = int(args.frame_duration * sr)
@@ -88,7 +93,7 @@ def main():
     logging.info("Computing RMS energy")
     rms = librosa.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
     times   = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=hop_len)
-    max_rms = rms.max()
+    max_rms = float(rms.max())
     thresh  = max_rms * args.rms_threshold
     logging.info(f"Max RMS={max_rms:.6f}, pitch threshold={thresh:.6f}")
 
@@ -128,7 +133,7 @@ def main():
     # Save to CSV
     df = pd.DataFrame(records)
     df.to_csv(args.output, index=False)
-    logging.info(f"Saved {len(df)} frames → {args.output}")
+    logging.info(f"Saved {len(df):,d} frames → {args.output}")
 
 if __name__ == "__main__":
     main()
