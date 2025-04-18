@@ -1,5 +1,6 @@
 import time
 import random
+import ambient_brightness
 import math
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
