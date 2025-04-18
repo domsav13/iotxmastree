@@ -1,44 +1,104 @@
-<!-- templates/index.html -->
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IoT Xmas Tree Control</title>
+  <title>IoT Xmas Tree Control</title>
+  <style>
+    /* Reset & base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f7f7f7; color: #333; }
+    .container { max-width: 600px; margin: 1rem auto; padding: 0 1rem; }
+
+    /* Section cards */
+    .control-section {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+    }
+    .control-section h1 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      color: #222;
+    }
+
+    /* Form elements */
+    form { display: flex; flex-direction: column; }
+    label { font-size: 1rem; margin-bottom: 0.5rem; }
+    select, input[type="text"], button {
+      font-size: 1rem;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    select, input[type="text"] {
+      background: #fafafa;
+    }
+    button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+
+    /* Make buttons stand out on mobile */
+    @media (max-width: 480px) {
+      button { font-size: 1.1rem; }
+      select, input[type="text"] { font-size: 1.1rem; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Music Control</h1>
-  <form action="/run_music" method="post">
-    <label for="music_script">Choose script:</label>
-    <select name="music_script" id="music_script">
-      {% for script in music_scripts %}
-        <option value="{{ script }}">{{ script }}</option>
-      {% endfor %}
-    </select>
-    <input type="text" name="args" placeholder="Optional args" />
-    <button type="submit">Play</button>
-  </form>
+  <div class="container">
 
-  <h1>Pattern Control</h1>
-  <form action="/run_pattern" method="post">
-    <label for="pattern_script">Choose pattern:</label>
-    <select name="pattern_script" id="pattern_script">
-      {% for script in pattern_scripts %}
-        <option value="{{ script }}">{{ script }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit">Run Pattern</button>
-  </form>
+    <div class="control-section">
+      <h1>Music Control</h1>
+      <form action="/run_music" method="post">
+        <label for="music_script">Choose script:</label>
+        <select name="music_script" id="music_script">
+          {% for script in music_scripts %}
+            <option value="{{ script }}">{{ script }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="args" placeholder="Optional args (e.g. volume)" />
+        <button type="submit">Play</button>
+      </form>
+    </div>
 
-  <h1>Live “Really Love” Show</h1>
-  <form action="/run_really_love" method="post">
-    <button type="submit">Start Really Love Show</button>
-  </form>
+    <div class="control-section">
+      <h1>Pattern Control</h1>
+      <form action="/run_pattern" method="post">
+        <label for="pattern_script">Choose pattern:</label>
+        <select name="pattern_script" id="pattern_script">
+          {% for script in pattern_scripts %}
+            <option value="{{ script }}">{{ script }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Run Pattern</button>
+      </form>
+    </div>
 
-  <h1>Stop Everything</h1>
-  <form action="/stop" method="post">
-    <button type="submit">Stop All</button>
-  </form>
+    <div class="control-section">
+      <h1>Live “Really Love” Show</h1>
+      <form action="/run_really_love" method="post">
+        <button type="submit">Start Show</button>
+      </form>
+    </div>
+
+    <div class="control-section">
+      <h1>Stop Everything</h1>
+      <form action="/stop" method="post">
+        <button type="submit">Stop All</button>
+      </form>
+    </div>
+
+  </div>
 </body>
 </html>
