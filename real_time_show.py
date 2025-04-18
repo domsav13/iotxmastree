@@ -4,7 +4,7 @@ import time
 import threading
 import pandas as pd
 import pygame
-
+import ambient_brightness
 from mapping import pixels, LED_COUNT
 
 CSV_PATH = "music/really_love_frames.csv"
