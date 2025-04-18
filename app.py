@@ -67,6 +67,19 @@ def stop():
         running_process = None
     return redirect(url_for('index'))
 
+from flask import jsonify
+from real_time_show import start_realtime_show, animate_from_csv
+
+led_thread = None
+
+@app.route('/run_really_love', methods=['POST'])
+def run_really_love():
+    global led_thread
+    if led_thread and led_thread.is_alive():
+        return jsonify({"status": "Show already running"})
+    led_thread = start_realtime_show()
+    return jsonify({"status": "Really Love light show started"})
+
 if __name__ == '__main__':
     # Accessible on your local network if needed
     app.run(host='0.0.0.0', port=5000, debug=True)
