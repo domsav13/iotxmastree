@@ -2,6 +2,7 @@ import time
 import math
 import pandas as pd
 import colorsys
+import ambient_brightness
 from rpi_ws281x import PixelStrip, Color
 
 def animate_spirals(csv_file, duration=30, interval=0.05, spiral_factor=4*math.pi, speed=2.0):
