@@ -1,4 +1,5 @@
 import time
+import ambient_brightness
 import board
 import neopixel
 
