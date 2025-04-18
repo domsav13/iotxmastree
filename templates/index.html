@@ -5,12 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IoT Xmas Tree Control</title>
   <style>
-    /* Reset & base */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; background: #f7f7f7; color: #333; }
     .container { max-width: 600px; margin: 1rem auto; padding: 0 1rem; }
-
-    /* Section cards */
     .control-section {
       background: #fff;
       border-radius: 8px;
@@ -24,8 +21,6 @@
       text-align: center;
       color: #222;
     }
-
-    /* Form elements */
     form { display: flex; flex-direction: column; }
     label { font-size: 1rem; margin-bottom: 0.5rem; }
     select, input[type="text"], button {
@@ -35,23 +30,13 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-    select, input[type="text"] {
-      background: #fafafa;
-    }
+    select, input[type="text"] { background: #fafafa; }
     button {
-      background: #007bff;
-      color: #fff;
-      border: none;
-      cursor: pointer;
+      background: #007bff; color: #fff; border: none; cursor: pointer;
     }
-    button:hover {
-      background: #0056b3;
-    }
-
-    /* Make buttons stand out on mobile */
+    button:hover { background: #0056b3; }
     @media (max-width: 480px) {
-      button { font-size: 1.1rem; }
-      select, input[type="text"] { font-size: 1.1rem; }
+      button, select, input[type="text"] { font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -85,11 +70,13 @@
       </form>
     </div>
 
-    <div class="control-section">
+    <div class="control-section" id="really-love-section">
       <h1>Live “Really Love” Show</h1>
-      <form action="/run_really_love" method="post">
-        <button type="submit">Start Show</button>
-      </form>
+      <button id="start-really-love">Start Show</button>
+      <audio id="reallyLoveAudio" 
+             src="{{ url_for('music_file', filename='really_love.wav') }}">
+        Your browser does not support the audio element.
+      </audio>
     </div>
 
     <div class="control-section">
@@ -100,5 +87,21 @@
     </div>
 
   </div>
+
+  <script>
+    document.getElementById('start-really-love').addEventListener('click', async () => {
+      try {
+        // Start LEDs on the Pi
+        await fetch('/run_really_love', { method: 'POST' });
+        // Play audio in-browser
+        const audio = document.getElementById('reallyLoveAudio');
+        audio.currentTime = 0;
+        await audio.play();
+      } catch (err) {
+        console.error('Error starting show:', err);
+        alert('Failed to start show. Check console.');
+      }
+    });
+  </script>
 </body>
 </html>
