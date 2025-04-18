@@ -1,8 +1,6 @@
-# app.py
-
 import os
 import subprocess
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory
 from real_time_show import start_realtime_show
 
 app = Flask(__name__)
@@ -20,6 +18,11 @@ def index():
     return render_template('index.html',
                            music_scripts=music_scripts,
                            pattern_scripts=pattern_scripts)
+
+@app.route('/music/<path:filename>')
+def music_file(filename):
+    # Serve wav/mp3 files from the music directory
+    return send_from_directory(MUSIC_DIR, filename)
 
 @app.route('/run_music', methods=['POST'])
 def run_music():
@@ -45,13 +48,11 @@ def run_pattern():
 @app.route('/run_really_love', methods=['POST'])
 def run_really_love():
     global running_process, led_thread
-    # stop any existing subprocess
     if running_process:
         running_process.terminate()
-    # start the realtime light show thread
     if not (led_thread and led_thread.is_alive()):
         led_thread = start_realtime_show()
-    return redirect(url_for('index'))
+    return ('', 204)   # return empty success for fetch()
 
 @app.route('/stop', methods=['POST'])
 def stop():
@@ -59,8 +60,8 @@ def stop():
     if running_process:
         running_process.terminate()
         running_process = None
-    # Note: the light‐show thread will naturally exit when its loop completes
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
+    # Use sudo or setcap so NeoPixel can open /dev/mem
     app.run(host='0.0.0.0', port=5000, debug=True)
