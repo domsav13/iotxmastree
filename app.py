@@ -1,7 +1,9 @@
 import os
 import subprocess
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory
-from real_time_show import start_realtime_show
+
+# ← Change this line to import the smooth version
+from real_time_show_smooth import start_realtime_show_smooth as start_realtime_show
 
 app = Flask(__name__)
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +23,6 @@ def index():
 
 @app.route('/music/<path:filename>')
 def music_file(filename):
-    # Serve wav/mp3 files from the music directory
     return send_from_directory(MUSIC_DIR, filename)
 
 @app.route('/run_music', methods=['POST'])
@@ -52,16 +53,16 @@ def run_really_love():
         running_process.terminate()
     if not (led_thread and led_thread.is_alive()):
         led_thread = start_realtime_show()
-    return ('', 204)   # return empty success for fetch()
+    return ('', 204)
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    global running_process, led_thread
+    global running_process
     if running_process:
         running_process.terminate()
         running_process = None
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # Use sudo or setcap so NeoPixel can open /dev/mem
+    # Make sure to run as sudo or via setcap so NeoPixel works
     app.run(host='0.0.0.0', port=5000, debug=True)
