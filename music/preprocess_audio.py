@@ -3,16 +3,16 @@
 preprocess_audio.py
 
 Preprocess a WAV audio file into frame‑level brightness & note color CSV,
-downsampling on load to avoid memory issues on the Pi.
+downsampling heavily (default 8 kHz) to avoid memory limits on the Pi.
 
 Usage:
-  1. Make sure you have a WAV (converted once externally):
+  1. Make sure you have a WAV:
        ffmpeg -i really_love.mp3 really_love.wav
   2. Run this script:
        python3 preprocess_audio.py \
          --input really_love.wav \
          --output really_love_frames.csv \
-         --sr 22050 \
+         --sr 8000 \
          --frame_duration 0.04 \
          --overlap 0.5 \
          --rms_threshold 0.02
@@ -22,50 +22,50 @@ import os
 import sys
 import argparse
 import logging
+import math
 
 import numpy as np
 import pandas as pd
 import librosa
 
-# Default settings
+# Defaults
 DEFAULT_INPUT_WAV   = "really_love.wav"
 DEFAULT_OUTPUT_CSV  = "really_love_frames.csv"
-DEFAULT_SR          = 22050    # downsample rate in Hz
-DEFAULT_FRAME_SEC   = 0.04     # 40 ms
-DEFAULT_OVERLAP     = 0.5      # 50% overlap
-DEFAULT_RMS_THRESH  = 0.02     # 2% of max RMS
+DEFAULT_SR          = 8000      # <<<< lower sample rate
+DEFAULT_FRAME_SEC   = 0.04      # 40 ms
+DEFAULT_OVERLAP     = 0.5       # 50% overlap
+DEFAULT_RMS_THRESH  = 0.02      # 2% of peak RMS
 
 NOTE_COLORS = {
-    'C': (255,   0,   0),  # Red
-    'D': (255, 128,   0),  # Orange
-    'E': (255, 255,   0),  # Yellow
-    'F': (  0, 255,   0),  # Green
-    'G': (  0, 255, 255),  # Cyan
-    'A': (  0,   0, 255),  # Blue
-    'B': (128,   0, 255),  # Violet
+    'C': (255,   0,   0),
+    'D': (255, 128,   0),
+    'E': (255, 255,   0),
+    'F': (  0, 255,   0),
+    'G': (  0, 255, 255),
+    'A': (  0,   0, 255),
+    'B': (128,   0, 255),
 }
 
 def freq_to_note(freq):
-    """Map frequency (Hz) → note letter (C–B), or None."""
     if np.isnan(freq):
         return None
-    note_name = librosa.hz_to_note(freq, octave=False)
-    letter = note_name[0]
+    nm = librosa.hz_to_note(freq, octave=False)
+    letter = nm[0]
     return letter if letter in NOTE_COLORS else None
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Audio → brightness, note & RGB CSV")
-    p.add_argument("-i", "--input",        default=DEFAULT_INPUT_WAV,
-                   help="Input WAV file (must already exist)")
-    p.add_argument("-o", "--output",       default=DEFAULT_OUTPUT_CSV,
+    p = argparse.ArgumentParser()
+    p.add_argument("-i","--input",       default=DEFAULT_INPUT_WAV,
+                   help="Input WAV file")
+    p.add_argument("-o","--output",      default=DEFAULT_OUTPUT_CSV,
                    help="Output CSV file")
     p.add_argument("--sr", type=int, default=DEFAULT_SR,
-                   help=f"Resample audio to this rate (Hz), default {DEFAULT_SR}")
-    p.add_argument("-f", "--frame_duration", type=float, default=DEFAULT_FRAME_SEC,
-                   help="Frame duration in seconds")
-    p.add_argument("-l", "--overlap",      type=float, default=DEFAULT_OVERLAP,
-                   help="Fractional overlap between frames (0–<1)")
-    p.add_argument("-t", "--rms_threshold", type=float, default=DEFAULT_RMS_THRESH,
+                   help="Resample rate (Hz), default %(default)d")
+    p.add_argument("-f","--frame_duration", type=float, default=DEFAULT_FRAME_SEC,
+                   help="Frame length in seconds")
+    p.add_argument("-l","--overlap",     type=float, default=DEFAULT_OVERLAP,
+                   help="Frame overlap fraction")
+    p.add_argument("-t","--rms_threshold", type=float, default=DEFAULT_RMS_THRESH,
                    help="Ignore pitch if RMS < this fraction of max")
     return p.parse_args()
 
@@ -74,52 +74,47 @@ def main():
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s: %(message)s")
 
-    # Validate input file
     if not os.path.isfile(args.input):
-        logging.error(f"Input file not found: {args.input}")
+        logging.error("Input WAV not found: %s", args.input)
         sys.exit(1)
 
-    logging.info(f"Loading audio at {args.sr:,d} Hz: {args.input}")
+    logging.info("Loading audio at %d Hz: %s", args.sr, args.input)
     y, sr = librosa.load(args.input, sr=args.sr)
 
-    # Frame/hop lengths
     frame_len = int(args.frame_duration * sr)
     hop_len   = int(frame_len * (1.0 - args.overlap))
     if hop_len < 1:
-        logging.warning("Overlap too high → setting hop_len = 1 sample")
+        logging.warning("Overlap too high; setting hop_len=1")
         hop_len = 1
 
-    # Compute RMS
-    logging.info("Computing RMS energy")
-    rms = librosa.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
-    times   = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=hop_len)
-    max_rms = float(rms.max())
-    thresh  = max_rms * args.rms_threshold
-    logging.info(f"Max RMS={max_rms:.6f}, pitch threshold={thresh:.6f}")
+    # manual RMS per-frame to avoid huge as_strided
+    n_frames = 1 + max(0, (len(y) - frame_len) // hop_len)
+    logging.info("Computing RMS over %d frames", n_frames)
+    rms = np.empty(n_frames, dtype=float)
+    times = np.empty(n_frames, dtype=float)
+    for i in range(n_frames):
+        start = i * hop_len
+        win   = y[start : start + frame_len]
+        rms[i] = math.sqrt(np.mean(win*win)) if len(win) == frame_len else 0.0
+        times[i] = start / sr
+    max_r = float(rms.max())
+    thresh = max_r * args.rms_threshold
+    logging.info("Max RMS=%.6f, threshold=%.6f", max_r, thresh)
 
-    # Pitch detection via YIN
-    logging.info("Detecting pitch (YIN)")
-    f0 = librosa.yin(
-        y,
-        fmin=librosa.note_to_hz('C2'),
-        fmax=librosa.note_to_hz('C7'),
-        frame_length=frame_len,
-        hop_length=hop_len
-    )
+    logging.info("Detecting pitch with YIN")
+    f0 = librosa.yin(y,
+                     fmin=librosa.note_to_hz('C2'),
+                     fmax=librosa.note_to_hz('C7'),
+                     frame_length=frame_len,
+                     hop_length=hop_len)
 
-    # Build frame data
     records = []
     for idx, (t, amp, freq) in enumerate(zip(times, rms, f0)):
-        # Log‑scale brightness
         bright = int(np.interp(np.log1p(amp),
-                               [0, np.log1p(max_rms)],
+                               [0, np.log1p(max_r)],
                                [0, 255]))
         note = freq_to_note(freq) if amp >= thresh else None
-        if note:
-            r, g, b = NOTE_COLORS[note]
-        else:
-            r, g, b = 0, 0, 0
-
+        r,g,b = NOTE_COLORS.get(note, (0,0,0)) if note else (0,0,0)
         records.append({
             "frame":      idx,
             "time_sec":  round(float(t), 3),
@@ -130,10 +125,9 @@ def main():
             "B":          b
         })
 
-    # Save to CSV
     df = pd.DataFrame(records)
     df.to_csv(args.output, index=False)
-    logging.info(f"Saved {len(df):,d} frames → {args.output}")
+    logging.info("Saved %d frames → %s", len(df), args.output)
 
 if __name__ == "__main__":
     main()
