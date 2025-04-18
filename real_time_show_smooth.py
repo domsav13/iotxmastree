@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 """
 real_time_show_smooth.py
@@ -49,14 +48,13 @@ def animate_from_csv_smooth(csv_path=CSV_PATH, wav_path=WAV_PATH):
                 pass
 
         # rate‑limit updates: skip if too soon
-        elapsed = rec['time_sec'] - last_up_time
-        if elapsed < MIN_UPDATE_INTERVAL:
+        if rec['time_sec'] - last_up_time < MIN_UPDATE_INTERVAL:
             continue
         last_up_time = rec['time_sec']
 
         # brightness smoothing
-        raw_scale  = rec['brightness'] / 255.0
-        scale      = prev_scale * SMOOTH_ALPHA + raw_scale * (1 - SMOOTH_ALPHA)
+        raw_scale = rec['brightness'] / 255.0
+        scale     = prev_scale * SMOOTH_ALPHA + raw_scale * (1 - SMOOTH_ALPHA)
         prev_scale = scale
 
         # compute candidate RGB
@@ -92,4 +90,3 @@ def start_realtime_show_smooth():
     t = threading.Thread(target=animate_from_csv_smooth, daemon=True)
     t.start()
     return t
-```
