@@ -26,6 +26,9 @@ import logging
 import numpy as np
 import pandas as pd
 import librosa
+from pydub import AudioSegment
+song = AudioSegment.from_mp3("Really_Love.mp3")
+song.export("really_love.wav", format="wav")
 
 # Default settings
 DEFAULT_INPUT_WAV   = "really_love.wav"
