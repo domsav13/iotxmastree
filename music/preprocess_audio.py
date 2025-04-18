@@ -2,13 +2,11 @@
 """
 preprocess_audio.py
 
-Preprocess a WAV audio file into frame‐level brightness & note color CSV.
+Preprocess a WAV audio file into frame‑level brightness & note color CSV.
 
 Usage:
-  1. Convert MP3 to WAV (once), e.g. with pydub or Audacity:
-       from pydub import AudioSegment
-       song = AudioSegment.from_mp3("Really_Love.mp3")
-       song.export("really_love.wav", format="wav")
+  1. Make sure you have a WAV:
+       ffmpeg -i really_love.mp3 really_love.wav
   2. Run this script:
        python3 preprocess_audio.py \
          --input really_love.wav \
@@ -26,9 +24,6 @@ import logging
 import numpy as np
 import pandas as pd
 import librosa
-from pydub import AudioSegment
-song = AudioSegment.from_mp3("Really_Love.mp3")
-song.export("really_love.wav", format="wav")
 
 # Default settings
 DEFAULT_INPUT_WAV   = "really_love.wav"
@@ -51,7 +46,6 @@ def freq_to_note(freq):
     """Map frequency (Hz) → note letter (C–B), or None."""
     if np.isnan(freq):
         return None
-    # Get note name without octave (e.g. "C#", "D")
     note_name = librosa.hz_to_note(freq, octave=False)
     letter = note_name[0]
     return letter if letter in NOTE_COLORS else None
@@ -59,7 +53,7 @@ def freq_to_note(freq):
 def parse_args():
     p = argparse.ArgumentParser(description="Audio → brightness, note & RGB CSV")
     p.add_argument("-i", "--input",        default=DEFAULT_INPUT_WAV,
-                   help="Input WAV file")
+                   help="Input WAV file (must already exist)")
     p.add_argument("-o", "--output",       default=DEFAULT_OUTPUT_CSV,
                    help="Output CSV file")
     p.add_argument("-f", "--frame_duration", type=float, default=DEFAULT_FRAME_SEC,
@@ -82,6 +76,8 @@ def main():
 
     logging.info(f"Loading audio: {args.input}")
     y, sr = librosa.load(args.input, sr=None)
+
+    # Frame/hop lengths
     frame_len = int(args.frame_duration * sr)
     hop_len   = int(frame_len * (1.0 - args.overlap))
     if hop_len < 1:
@@ -91,7 +87,7 @@ def main():
     # Compute RMS
     logging.info("Computing RMS energy")
     rms = librosa.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
-    times = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=hop_len)
+    times   = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=hop_len)
     max_rms = rms.max()
     thresh  = max_rms * args.rms_threshold
     logging.info(f"Max RMS={max_rms:.6f}, pitch threshold={thresh:.6f}")
@@ -109,7 +105,7 @@ def main():
     # Build frame data
     records = []
     for idx, (t, amp, freq) in enumerate(zip(times, rms, f0)):
-        # Log‐scale brightness
+        # Log‑scale brightness
         bright = int(np.interp(np.log1p(amp),
                                [0, np.log1p(max_rms)],
                                [0, 255]))
