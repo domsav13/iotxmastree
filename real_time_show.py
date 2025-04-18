@@ -1,59 +1,84 @@
-# real_time_show.py
-
 import time
 import threading
 import pandas as pd
 import pygame
-import ambient_brightness
+
+# Import your LED driver interface
 from mapping import pixels, LED_COUNT
 
-CSV_PATH = "music/really_love_frames.csv"
+# Configuration
+CSV_PATH = "music/really_love_smoothed.csv"
 WAV_PATH = "music/really_love.wav"
+# Runtime smoothing and gating
+SMOOTH_ALPHA     = 0.3    # smoothing factor (0 = no smooth, 1 = max smooth)
+BRIGHTNESS_GATE  = 10     # minimum brightness to update color (0-255)
 
-def animate_from_csv(csv_path=CSV_PATH, wav_path=WAV_PATH):
-    # 1) Load precomputed frames
-    df = pd.read_csv(csv_path)  # columns: time_sec, brightness, R, G, B
 
-    # 2) Initialize and play audio
+def animate_from_csv_smooth(csv_path=CSV_PATH, wav_path=WAV_PATH):
+    # Load precomputed, smoothed frames
+    df = pd.read_csv(csv_path)
+    frames = df.to_dict('records')
+
+    # Initialize audio playback
     pygame.mixer.init()
     pygame.mixer.music.load(wav_path)
     pygame.mixer.music.play()
 
-    # 3) Iterate frames in real time
-    start_t = time.perf_counter()
-    last_r = last_g = last_b = 0
-    for _, row in df.iterrows():
-        target = row.time_sec
-        now    = time.perf_counter() - start_t
-        delta  = target - now
+    # Timing setup
+    clock = time.perf_counter
+    start_time = clock()
+
+    # State for smoothing and note-holding
+    prev_scale = 0.0
+    last_color = (0, 0, 0)
+
+    for rec in frames:
+        # --- 1) Precise wait ---
+        target = start_time + rec['time_sec']
+        now = clock()
+        delta = target - now
         if delta > 0:
-            time.sleep(delta)
+            # Sleep most of the interval
+            time.sleep(delta * 0.8)
+            # Busy-wait the remainder for high precision
+            while clock() < target:
+                pass
 
-        # scale RGB by brightness, then pack as GRB for NeoPixel
-        bscale = row.brightness / 255.0
-        r = int(row.R * bscale)
-        g = int(row.G * bscale)
-        b = int(row.B * bscale)
-        last_r, last_g, last_b = r, g, b
+        # --- 2) Brightness smoothing ---
+        raw_scale = rec['brightness'] / 255.0
+        scale = prev_scale * SMOOTH_ALPHA + raw_scale * (1 - SMOOTH_ALPHA)
+        prev_scale = scale
 
-        grb = (g, r, b)
+        # Compute scaled RGB
+        r = int(rec['R'] * scale)
+        g = int(rec['G'] * scale)
+        b = int(rec['B'] * scale)
+
+        # --- 3) Noise gate & note-holding ---
+        if rec['note'] != 'None' and rec['brightness'] >= BRIGHTNESS_GATE:
+            last_color = (r, g, b)
+        grb = (last_color[1], last_color[0], last_color[2])  # pack as GRB
+
+        # --- 4) Update LEDs ---
         for i in range(LED_COUNT):
             pixels[i] = grb
         pixels.show()
 
-    # 4) Fade out
-    for fade in range(50, -1, -1):
-        dim     = fade / 50.0
-        dr, dg, db = (int(last_r * dim),
-                      int(last_g * dim),
-                      int(last_b * dim))
+    # Fade-out: dim over 1 second
+    fade_steps = 50
+    for step in range(fade_steps, -1, -1):
+        factor = step / fade_steps
+        dr = int(last_color[0] * factor)
+        dg = int(last_color[1] * factor)
+        db = int(last_color[2] * factor)
         grb_fade = (dg, dr, db)
         for i in range(LED_COUNT):
             pixels[i] = grb_fade
         pixels.show()
-        time.sleep(0.02)
+        time.sleep(1.0 / fade_steps)
 
-def start_realtime_show():
-    t = threading.Thread(target=animate_from_csv, daemon=True)
+
+def start_realtime_show_smooth():
+    t = threading.Thread(target=animate_from_csv_smooth, daemon=True)
     t.start()
     return t
