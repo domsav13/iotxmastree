@@ -1,0 +1,44 @@
+<!-- templates/index.html -->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Xmas Tree Control</title>
+</head>
+<body>
+  <h1>Music Control</h1>
+  <form action="/run_music" method="post">
+    <label for="music_script">Choose script:</label>
+    <select name="music_script" id="music_script">
+      {% for script in music_scripts %}
+        <option value="{{ script }}">{{ script }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="args" placeholder="Optional args" />
+    <button type="submit">Play</button>
+  </form>
+
+  <h1>Pattern Control</h1>
+  <form action="/run_pattern" method="post">
+    <label for="pattern_script">Choose pattern:</label>
+    <select name="pattern_script" id="pattern_script">
+      {% for script in pattern_scripts %}
+        <option value="{{ script }}">{{ script }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Run Pattern</button>
+  </form>
+
+  <h1>Live “Really Love” Show</h1>
+  <form action="/run_really_love" method="post">
+    <button type="submit">Start Really Love Show</button>
+  </form>
+
+  <h1>Stop Everything</h1>
+  <form action="/stop" method="post">
+    <button type="submit">Stop All</button>
+  </form>
+</body>
+</html>
