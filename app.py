@@ -87,7 +87,7 @@ def run_platonic():
 @app.route('/run_twister', methods=['POST'])
 def run_twister():
     cmd = [
-        'python3', os.path.join(PATTERNS_DIR, 'vortex_twister.py'),
+        'python3', os.path.join(PATTERNS_DIR, 'twister.py'),
         '--interval', request.form['interval_t'],
         '--rotations-per-sec', request.form['rps_t'],
         '--turns', request.form['turns_t'],
@@ -137,7 +137,7 @@ def run_contagious():
 @app.route('/run_pulse', methods=['POST'])
 def run_pulse():
     cmd = [
-        'python3', os.path.join(PATTERNS_DIR, 'galaxy_core_pulse.py'),
+        'python3', os.path.join(PATTERNS_DIR, 'pulse.py'),
         '--center', request.form.get('center', ''),
         '--interval', request.form['interval_pulse'],
         '--speed', request.form['speed_pulse'],
@@ -162,7 +162,7 @@ def run_fireworks():
 @app.route('/run_helix', methods=['POST'])
 def run_helix():
     cmd = [
-        'python3', os.path.join(PATTERNS_DIR, 'double_helix_twist.py'),
+        'python3', os.path.join(PATTERNS_DIR, 'helix.py'),
         '--interval',      request.form['interval_h'],
         '--rps',           request.form['rps_h'],
         '--turns',         request.form['turns_h'],
