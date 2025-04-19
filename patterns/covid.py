@@ -92,6 +92,6 @@ if __name__ == '__main__':
     # Run indefinitely
     animate_contagious_effect(
         interval=0.01,
-        contagion_speed=8.5,
+        contagion_speed=9.5,
         hold_time=0.5
     )
