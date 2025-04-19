@@ -10,9 +10,9 @@ import time
 import math
 import argparse
 import pandas as pd
-import ambient_brightness    # patches PixelStrip.show() for ambient dimming
 from rpi_ws281x import PixelStrip, Color
 import numpy as np
+import ambient_brightness
 
 # ─── Platonic Solid Definitions ────────────────────────────────────────────────
 # Golden ratio
