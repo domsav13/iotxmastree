@@ -5,13 +5,12 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from patterns.grb_tester import light_tree
 
 app = Flask(__name__)
-BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
-COORDS_CSV    = os.path.join(BASE_DIR, 'coordinates.csv')
-PATTERNS_DIR  = os.path.join(BASE_DIR, 'patterns')
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+COORDS_CSV   = os.path.join(BASE_DIR, 'coordinates.csv')
+PATTERNS_DIR = os.path.join(BASE_DIR, 'patterns')
 
-# Globals for managing running tasks
-running_process = None
-grb_thread      = None
+task_process = None
+grb_thread   = None
 
 @app.route('/')
 def index():
@@ -21,7 +20,7 @@ def index():
 def run_grb_test():
     global grb_thread
     if grb_thread and grb_thread.is_alive():
-        return jsonify({'status': 'A GRB test is already running'}), 409
+        return jsonify({'status': 'GRB test already running'}), 409
     try:
         g        = int(request.form['g'])
         r        = int(request.form['r'])
@@ -30,63 +29,142 @@ def run_grb_test():
         duration = float(request.form.get('duration', 10.0))
     except ValueError:
         return jsonify({'status': 'Invalid GRB input'}), 400
-    def grb_target():
+    def grb_task():
         light_tree((g, r, b), csv_file=COORDS_CSV, duration=duration, gamma=gamma)
-    grb_thread = threading.Thread(target=grb_target, daemon=True)
+    grb_thread = threading.Thread(target=grb_task, daemon=True)
     grb_thread.start()
     return redirect(url_for('index'))
 
+def _start_pattern(cmd):
+    global task_process
+    if task_process:
+        task_process.terminate()
+    task_process = subprocess.Popen(cmd)
+
 @app.route('/run_compass', methods=['POST'])
 def run_compass():
-    global running_process
-    if running_process:
-        running_process.terminate()
-    # Parse form inputs
-    num_slices     = request.form['num_slices']
-    width          = request.form['width']
-    rps            = request.form.get('rps', '0.2')
-    interval       = request.form.get('interval', '0.05')
-    g_comp, r_comp, b_comp = request.form['g_comp'], request.form['r_comp'], request.form['b_comp']
-    reverse        = request.form.get('reverse')
     cmd = [
         'python3', os.path.join(PATTERNS_DIR, 'compass_rose.py'),
-        '--num-slices', num_slices,
-        '--width', width,
-        '--rps', rps,
-        '--interval', interval,
-        '--color', g_comp, r_comp, b_comp
+        '--num-slices', request.form['num_slices'],
+        '--width', request.form['width'],
+        '--rps', request.form['rps'],
+        '--interval', request.form['interval'],
+        '--color', request.form['g_comp'], request.form['r_comp'], request.form['b_comp']
     ]
-    if reverse:
+    if request.form.get('reverse'):
         cmd.append('--reverse')
-    running_process = subprocess.Popen(cmd)
+    _start_pattern(cmd)
     return redirect(url_for('index'))
 
 @app.route('/run_voronoi', methods=['POST'])
 def run_voronoi():
-    global running_process
-    if running_process:
-        running_process.terminate()
-    # Parse form inputs
-    num_seeds      = request.form['num_seeds']
-    interval       = request.form.get('interval', '0.1')
-    change_interval= request.form.get('change_interval', '10.0')
-    transition     = request.form.get('transition', '2.0')
     cmd = [
         'python3', os.path.join(PATTERNS_DIR, 'voronoi_bloom.py'),
-        '--num-seeds', num_seeds,
-        '--interval', interval,
-        '--change-interval', change_interval,
-        '--transition', transition
+        '--num-seeds', request.form['num_seeds'],
+        '--interval', request.form['interval_v'],
+        '--change-interval', request.form['change_interval'],
+        '--transition', request.form['transition']
     ]
-    running_process = subprocess.Popen(cmd)
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_platonic', methods=['POST'])
+def run_platonic():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'rotating_platonic.py'),
+        '--shape', request.form['shape'],
+        '--interval', request.form['interval_p'],
+        '--speed', request.form['speed'],
+        '--threshold', request.form['threshold'],
+        '--vertex-color', request.form['g_vert'], request.form['r_vert'], request.form['b_vert'],
+        '--edge-color', request.form['g_edge'], request.form['r_edge'], request.form['b_edge']
+    ]
+    if request.form.get('show_edges'):
+        cmd.append('--show-edges')
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_twister', methods=['POST'])
+def run_twister():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'vortex_twister.py'),
+        '--interval', request.form['interval_t'],
+        '--rotations-per-sec', request.form['rps_t'],
+        '--turns', request.form['turns_t'],
+        '--range', request.form['z_range']
+    ]
+    if request.form.get('reverse_t'):
+        cmd.append('--reverse')
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_snake', methods=['POST'])
+def run_snake():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'snake.py'),
+        '--num-snakes', request.form['num_snakes'],
+        '--length', request.form['length'],
+        '--delay', request.form['delay'],
+        '--neighbors', request.form['neighbors'],
+        '--min-bright', request.form['min_bright'],
+        '--max-bright', request.form['max_bright']
+    ]
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_random_plane', methods=['POST'])
+def run_random_plane():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'random_plane.py'),
+        '--interval', request.form['interval_plane'],
+        '--plane-speed', request.form['plane_speed'],
+        '--thickness-factor', request.form['thickness']
+    ]
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_contagious', methods=['POST'])
+def run_contagious():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'covid.py'),
+        '--interval', request.form['interval_c'],
+        '--contagion-speed', request.form['speed_c'],
+        '--hold-time', request.form['hold_time']
+    ]
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_pulse', methods=['POST'])
+def run_pulse():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'galaxy_core_pulse.py'),
+        '--center', request.form.get('center', ''),
+        '--interval', request.form['interval_pulse'],
+        '--speed', request.form['speed_pulse'],
+        '--thickness', request.form['thickness_pulse'],
+        '--color', request.form['r_pulse'], request.form['g_pulse'], request.form['b_pulse']
+    ]
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
+@app.route('/run_fireworks', methods=['POST'])
+def run_fireworks():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'fireworks.py'),
+        '--interval', request.form['fw_interval'],
+        '--firework-duration', request.form['fw_duration'],
+        '--spawn-chance', request.form['fw_spawn'],
+        '--blast-radius-factor', request.form['fw_radius']
+    ]
+    _start_pattern(cmd)
     return redirect(url_for('index'))
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    global running_process, grb_thread
-    if running_process:
-        running_process.terminate()
-        running_process = None
+    global task_process, grb_thread
+    if task_process:
+        task_process.terminate()
+        task_process = None
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
