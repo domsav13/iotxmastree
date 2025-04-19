@@ -144,6 +144,23 @@
       <button type="submit">Run Fireworks Burst</button>
     </form>
   </section>
+  <section>
+    <h2>Double‑Helix DNA Twist</h2>
+    <form action="/run_helix" method="post">
+      <label>Interval (s):<input type="number" name="interval_h" step="0.01" value="0.05"></label>
+      <label>Rotations/sec:<input type="number" name="rps_h" step="0.1" value="0.2"></label>
+      <label>Helix Turns:<input type="number" name="turns_h" step="0.1" value="3.0"></label>
+      <label>Strand 1 Color R:<input type="number" name="r1_h" min="0" max="255" value="255"></label>
+      <label>Strand 1 Color G:<input type="number" name="g1_h" min="0" max="255" value="0"></label>
+      <label>Strand 1 Color B:<input type="number" name="b1_h" min="0" max="255" value="0"></label>
+      <label>Strand 2 Color R:<input type="number" name="r2_h" min="0" max="255" value="0"></label>
+      <label>Strand 2 Color G:<input type="number" name="g2_h" min="0" max="255" value="0"></label>
+      <label>Strand 2 Color B:<input type="number" name="b2_h" min="0" max="255" value="255"></label>
+      <label>Z‐Range (0–1):<input type="number" name="z_range_h" step="0.01" value="1.0"></label>
+      <label><input type="checkbox" name="reverse_h"> Reverse Vertical Direction</label>
+      <button type="submit">Run Double‑Helix Twist</button>
+    </form>
+  </section>
 
   <section>
     <form action="/stop" method="post">
