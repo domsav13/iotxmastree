@@ -44,6 +44,17 @@
   </section>
 
   <section>
+    <h2>Voronoi Bloom</h2>
+    <form action="/run_voronoi" method="post">
+      <label>Number of Seeds:<input type="number" name="num_seeds" min="1" value="5"></label>
+      <label>Frame Interval (s):<input type="number" name="interval" step="0.01" value="0.1"></label>
+      <label>Change Interval (s):<input type="number" name="change_interval" step="0.1" value="10.0"></label>
+      <label>Transition (s):<input type="number" name="transition" step="0.1" value="2.0"></label>
+      <button type="submit">Run Voronoi Bloom</button>
+    </form>
+  </section>
+
+  <section>
     <form action="/stop" method="post">
       <button type="submit">Stop All Patterns</button>
     </form>
