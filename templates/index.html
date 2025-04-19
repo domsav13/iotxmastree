@@ -72,6 +72,7 @@
 <body>
   <h1>LED Control Dashboard</h1>
 
+  <!-- GRB Tester -->
   <section>
     <h2>GRB Color Tester</h2>
     <form action="/run_grb_test" method="post">
@@ -94,6 +95,7 @@
     </form>
   </section>
 
+  <!-- Compass Rose -->
   <section>
     <h2>Compass Rose / Angular Starburst</h2>
     <form action="/run_compass" method="post">
@@ -125,6 +127,7 @@
     </form>
   </section>
 
+  <!-- Voronoi Bloom -->
   <section>
     <h2>Voronoi Bloom</h2>
     <form action="/run_voronoi" method="post">
@@ -144,6 +147,7 @@
     </form>
   </section>
 
+  <!-- Platonic Spinner -->
   <section>
     <h2>Platonic Solid Spinner</h2>
     <form action="/run_platonic" method="post">
@@ -164,14 +168,14 @@
         <input type="number" name="threshold" step="0.01" value="0.2">
       </label>
       <label>Vertex Color (G,R,B)
-        <input type="number" name="g_vert" min="0" max="255" placeholder="G" required>
-        <input type="number" name="r_vert" min="0" max="255" placeholder="R" required>
-        <input type="number" name="b_vert" min="0" max="255" placeholder="B" required>
+        <input type="number" name="g_vert" min="0" max="255" placeholder="G">
+        <input type="number" name="r_vert" min="0" max="255" placeholder="R">
+        <input type="number" name="b_vert" min="0" max="255" placeholder="B">
       </label>
       <label>Edge Color (G,R,B)
-        <input type="number" name="g_edge" min="0" max="255" placeholder="G" required>
-        <input type="number" name="r_edge" min="0" max="255" placeholder="R" required>
-        <input type="number" name="b_edge" min="0" max="255" placeholder="B" required>
+        <input type="number" name="g_edge" min="0" max="255" placeholder="G">
+        <input type="number" name="r_edge" min="0" max="255" placeholder="R">
+        <input type="number" name="b_edge" min="0" max="255" placeholder="B">
       </label>
       <label>
         <input type="checkbox" name="show_edges"> Show Edges
@@ -180,6 +184,7 @@
     </form>
   </section>
 
+  <!-- Vortex Twister -->
   <section>
     <h2>Vortex/Spiral Twister</h2>
     <form action="/run_twister" method="post">
@@ -202,6 +207,7 @@
     </form>
   </section>
 
+  <!-- Multi-Snake -->
   <section>
     <h2>Multi‑Snake Effect</h2>
     <form action="/run_snake" method="post">
@@ -227,6 +233,7 @@
     </form>
   </section>
 
+  <!-- Random Plane Sweep -->
   <section>
     <h2>Random Plane Sweep</h2>
     <form action="/run_random_plane" method="post">
@@ -243,6 +250,7 @@
     </form>
   </section>
 
+  <!-- Contagious Spread -->
   <section>
     <h2>Contagious Spread Effect</h2>
     <form action="/run_contagious" method="post">
@@ -259,6 +267,7 @@
     </form>
   </section>
 
+  <!-- Galaxy Core Pulse -->
   <section>
     <h2>Galaxy Core Pulse</h2>
     <form action="/run_pulse" method="post">
@@ -287,6 +296,7 @@
     </form>
   </section>
 
+  <!-- Fireworks Burst -->
   <section>
     <h2>Fireworks Burst</h2>
     <form action="/run_fireworks" method="post">
@@ -301,40 +311,43 @@
       </label>
       <label>Blast Radius Factor
         <input type="number" name="fw_radius" step="0.01" value="0.5">
-      ```html
+      </label>
+      <button type="submit">Run Fireworks Burst</button>
+    </form>
   </section>
-  
+
+  <!-- Double‑Helix DNA Twist -->
   <section>
     <h2>Double‑Helix DNA Twist</h2>
     <form action="/run_helix" method="post">
-      <label>Interval (s):
+      <label>Interval (s)
         <input type="number" name="interval_h" step="0.01" value="0.05">
       </label>
-      <label>Rotations/sec:
+      <label>Rotations/sec
         <input type="number" name="rps_h" step="0.1" value="0.2">
       </label>
-      <label>Helix Turns:
+      <label>Helix Turns
         <input type="number" name="turns_h" step="0.1" value="3.0">
       </label>
-      <label>Strand 1 Color R:
+      <label>Strand 1 Color R
         <input type="number" name="r1_h" min="0" max="255" value="255">
       </label>
-      <label>Strand 1 Color G:
+      <label>Strand 1 Color G
         <input type="number" name="g1_h" min="0" max="255" value="0">
       </label>
-      <label>Strand 1 Color B:
+      <label>Strand 1 Color B
         <input type="number" name="b1_h" min="0" max="255" value="0">
       </label>
-      <label>Strand 2 Color R:
+      <label>Strand 2 Color R
         <input type="number" name="r2_h" min="0" max="255" value="0">
       </label>
-      <label>Strand 2 Color G:
+      <label>Strand 2 Color G
         <input type="number" name="g2_h" min="0" max="255" value="0">
       </label>
-      <label>Strand 2 Color B:
+      <label>Strand 2 Color B
         <input type="number" name="b2_h" min="0" max="255" value="255">
       </label>
-      <label>Z‑Range (0–1):
+      <label>Z‑Range (0–1)
         <input type="number" name="z_range_h" step="0.01" value="1.0">
       </label>
       <label>
@@ -344,25 +357,27 @@
     </form>
   </section>
 
+  <!-- Heartbeat Pulse -->
   <section>
     <h2>Heartbeat Pulse</h2>
     <form action="/run_heartbeat" method="post">
-      <label>Beat Period (s):
+      <label>Beat Period (s)
         <input type="number" name="period" step="0.1" value="1.0">
       </label>
-      <label>Min Intensity:
+      <label>Min Intensity
         <input type="number" name="min_int" min="0" max="255" value="20">
       </label>
-      <label>Max Intensity:
+      <label>Max Intensity
         <input type="number" name="max_int" min="0" max="255" value="255">
       </label>
-      <label>Frame Delay (s):
+      <label>Frame Delay (s)
         <input type="number" name="frame_delay" step="0.005" value="0.02">
       </label>
       <button type="submit">Run Heartbeat Pulse</button>
     </form>
   </section>
 
+  <!-- Stop All -->
   <section>
     <form action="/stop" method="post">
       <button type="submit">Stop All Patterns</button>
