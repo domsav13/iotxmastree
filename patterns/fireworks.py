@@ -123,7 +123,7 @@ def animate_fireworks(interval=0.05,
 if __name__ == '__main__':
     animate_fireworks(
         interval=0.05,
-        firework_duration=0.75,
-        spawn_chance=0.05,
-        blast_radius_factor=0.8
+        firework_duration=0.5,
+        spawn_chance=0.5,
+        blast_radius_factor=0.5
     )
