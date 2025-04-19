@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Ambient Sensor Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style> body { font-family: sans-serif; margin: 20px; } #graph { width: 100%; height: 600px; } </style>
+</head>
+<body>
+  <h1>Real‑Time Ambient Light & Brightness</h1>
+  <div id="graph"></div>
+
+  <script>
+    const traceLux = { x: [], y: [], mode: 'lines+markers', name: 'Lux (lx)' };
+    const traceBr  = { x: [], y: [], mode: 'lines+markers', name: 'Brightness' };
+
+    Plotly.newPlot('graph', [traceLux, traceBr], {
+      title: 'BH1750 Readings',
+      xaxis: { title: 'Time' },
+      yaxis: { title: 'Value' }
+    });
+
+    setInterval(() => {
+      fetch('/data')
+        .then(r => r.json())
+        .then(data => {
+          Plotly.update('graph',
+            { x: [data.time, data.time], y: [data.lux, data.brightness] }
+          );
+        });
+    }, 1000);
+  </script>
+</body>
+</html>
