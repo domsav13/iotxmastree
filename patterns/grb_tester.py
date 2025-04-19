@@ -1,7 +1,7 @@
 import time
-import ambient_brightness
 import pandas as pd
 from rpi_ws281x import PixelStrip, Color
+import ambient_brightness
 
 def apply_gamma(color, gamma=2.2):
     """
