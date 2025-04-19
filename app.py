@@ -1,16 +1,31 @@
 import os
 import subprocess
 import threading
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+import pandas as pd
+import time
+from flask import Flask, render_template, request, redirect, url_for
 from patterns.grb_tester import light_tree
+from rpi_ws281x import PixelStrip, Color
 
 app = Flask(__name__)
+
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 COORDS_CSV   = os.path.join(BASE_DIR, 'coordinates.csv')
 PATTERNS_DIR = os.path.join(BASE_DIR, 'patterns')
 
 task_process = None
 grb_thread   = None
+
+def clear_all_leds():
+    """Instantiate the strip and turn every LED off immediately."""
+    df = pd.read_csv(COORDS_CSV)
+    count = len(df)
+    # match your strip setup
+    strip = PixelStrip(count, 18, 800000, 10, False, 255, 0)
+    strip.begin()
+    for i in range(count):
+        strip.setPixelColor(i, Color(0, 0, 0))
+    strip.show()
 
 @app.route('/')
 def index():
@@ -19,16 +34,17 @@ def index():
 @app.route('/run_grb_test', methods=['POST'])
 def run_grb_test():
     global grb_thread
+    # if already running, just go back
     if grb_thread and grb_thread.is_alive():
-        return jsonify({'status': 'GRB test already running'}), 409
+        return redirect(url_for('index'))
     try:
         g        = int(request.form['g'])
         r        = int(request.form['r'])
         b        = int(request.form['b'])
         gamma    = float(request.form.get('gamma', 2.2))
         duration = float(request.form.get('duration', 10.0))
-    except ValueError:
-        return jsonify({'status': 'Invalid GRB input'}), 400
+    except Exception:
+        return redirect(url_for('index'))
     def grb_task():
         light_tree((g, r, b), csv_file=COORDS_CSV, duration=duration, gamma=gamma)
     grb_thread = threading.Thread(target=grb_task, daemon=True)
@@ -187,9 +203,21 @@ def run_heartbeat():
     _start_pattern(cmd)
     return redirect(url_for('index'))
 
+@app.route('/all_off', methods=['POST'])
+def all_off():
+    # stop any running pattern subprocess
+    global task_process
+    if task_process:
+        task_process.terminate()
+        task_process = None
+    # turn off every LED
+    clear_all_leds()
+    return redirect(url_for('index'))
+
 @app.route('/stop', methods=['POST'])
 def stop():
-    global task_process, grb_thread
+    # this simply terminates the currently running pattern
+    global task_process
     if task_process:
         task_process.terminate()
         task_process = None
