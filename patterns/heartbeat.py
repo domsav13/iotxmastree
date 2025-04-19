@@ -57,7 +57,7 @@ try:
         env = heartbeat_envelope(elapsed)
         brightness = int(MIN_INTENSITY + env * (MAX_INTENSITY - MIN_INTENSITY))
         # set all pixels to red with this intensity
-        color = Color(0, 0, brightness)
+        color = Color(0, brightness, 0)
         for i in range(LED_COUNT):
             strip.setPixelColor(i, color)
         strip.show()  # ambient_brightness will adjust further
