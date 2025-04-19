@@ -223,5 +223,29 @@ def stop():
         task_process = None
     return redirect(url_for('index'))
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+# 2️⃣ data API stays the same (or rename /data if you like)
+MAX_POINTS = 100
+timestamps  = collections.deque(maxlen=MAX_POINTS)
+lux_values  = collections.deque(maxlen=MAX_POINTS)
+br_values   = collections.deque(maxlen=MAX_POINTS)
+
+@app.route('/data')
+def data():
+    lux = read_lux()
+    br  = map_lux_to_brightness(lux)
+    t   = time.strftime('%H:%M:%S')
+    timestamps.append(t)
+    lux_values.append(lux if lux is not None else 0)
+    br_values.append(br)
+    return jsonify({
+        'time':       list(timestamps),
+        'lux':        list(lux_values),
+        'brightness': list(br_values)
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
