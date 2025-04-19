@@ -161,6 +161,22 @@
       <button type="submit">Run Double‑Helix Twist</button>
     </form>
   </section>
+  <section>
+    <h2>Heartbeat Pulse</h2>
+    <form action="/run_heartbeat" method="post">
+      <label>Beat Period (s):<input type="number" name="period" step="0.1" value="1.0"></label>
+      <label>Min Intensity:<input type="number" name="min_int" min="0" max="255" value="20"></label>
+      <label>Max Intensity:<input type="number" name="max_int" min="0" max="255" value="255"></label>
+      <label>Frame Delay (s):<input type="number" name="frame_delay" step="0.005" value="0.02"></label>
+      <button type="submit">Run Heartbeat Pulse</button>
+    </form>
+  </section>
+
+  <section>
+    <form action="/stop" method="post">
+      <button type="submit">Stop All Patterns</button>
+    </form>
+  </section>
 
   <section>
     <form action="/stop" method="post">
