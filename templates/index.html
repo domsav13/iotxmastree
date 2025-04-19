@@ -380,19 +380,25 @@
   <!-- Stop All -->
   <section>
     <h2>Control</h2>
-    <!-- Stop whatever pattern is running (does NOT turn LEDs off) -->
+
+    <!-- Stop whatever pattern is running -->
     <form action="/stop" method="post">
       <button type="submit">Stop Current Pattern</button>
     </form>
+
     <!-- Immediately turn all LEDs off -->
     <form action="/all_off" method="post">
       <button type="submit">Turn All LEDs Off</button>
     </form>
+
+    <!-- Ambient sensor dashboard button -->
+    <button
+      type="button"
+      onclick="window.location='{{ url_for('dashboard') }}'">
+      View Ambient Sensor Plots
+    </button>
   </section>
-  <!-- anywhere in your page -->
-<a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-  View Ambient Sensor Plots
-</a>
+
 
 </body>
 </html>
