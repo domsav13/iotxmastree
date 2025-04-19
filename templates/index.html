@@ -379,8 +379,14 @@
 
   <!-- Stop All -->
   <section>
+    <h2>Control</h2>
+    <!-- Stop whatever pattern is running (does NOT turn LEDs off) -->
     <form action="/stop" method="post">
-      <button type="submit">Stop All Patterns</button>
+      <button type="submit">Stop Current Pattern</button>
+    </form>
+    <!-- Immediately turn all LEDs off -->
+    <form action="/all_off" method="post">
+      <button type="submit">Turn All LEDs Off</button>
     </form>
   </section>
 </body>
