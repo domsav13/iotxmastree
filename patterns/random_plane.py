@@ -1,103 +1,101 @@
+#!/usr/bin/env python3
+"""
+random_plane.py
+
+Animate random colored planes traveling through a 3D LED tree, looping forever.
+"""
 import time
 import math
-import ambient_brightness
 import random
 import pandas as pd
+import ambient_brightness    # patches PixelStrip.show() for ambient dimming
 from rpi_ws281x import PixelStrip, Color
 
-def animate_random_planes(csv_file, duration=30, interval=0.01, plane_speed=50.0, thickness_factor=0.1):
+# ─── LED & Coordinate Setup ───────────────────────────────────────────────────
+BASE_DIR    = __import__('os').path.dirname(__import__('os').path.abspath(__file__))
+COORDS_CSV  = __import__('os').path.join(BASE_DIR, 'coordinates.csv')
+df          = pd.read_csv(COORDS_CSV)
+df['led_index'] = df.index
+positions   = df[['X','Y','Z']].values.tolist()
+LED_COUNT   = len(positions)
+
+# ─── Strip Configuration ──────────────────────────────────────────────────────
+LED_PIN        = 18
+LED_FREQ_HZ    = 800000
+LED_DMA        = 10
+LED_BRIGHTNESS = 125
+LED_INVERT     = False
+LED_CHANNEL    = 0
+
+strip = PixelStrip(
+    LED_COUNT, LED_PIN, LED_FREQ_HZ,
+    LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL
+)
+strip.begin()
+
+def clear_strip():
+    """Turn off all LEDs."""
+    for i in range(LED_COUNT):
+        strip.setPixelColor(i, Color(0, 0, 0))
+
+# ─── Plane Animation ──────────────────────────────────────────────────────────
+def animate_random_planes(interval=0.01, plane_speed=50.0, thickness_factor=0.1):
     """
-    Animate random planes passing through the LED tree.
-    
-    For each plane:
-      - A random unit normal vector (A, B, C) is generated.
-      - Each LED’s projection onto this vector is computed to find the range (min_p, max_p).
-      - A plane of thickness (thickness = thickness_factor * (max_p-min_p)) is animated by
-        moving its offset D from (min_p - thickness) to (max_p + thickness) at a rate of plane_speed.
-      - LEDs with a distance from the plane less than thickness/2 are lit with a random color.
-      - After the plane passes through, a new plane is generated.
-    
-    Parameters:
-      csv_file (str): Path to CSV file with LED coordinates (columns: X, Y, Z).
-      duration (float): Total duration of the animation in seconds.
-      interval (float): Time (in seconds) between frame updates.
-      plane_speed (float): Speed (in coordinate units per second) at which the plane moves.
-      thickness_factor (float): Fraction of the projection range used as the plane’s thickness.
+    Loop forever animating random planes through the tree.
+
+    interval: seconds between frames
+    plane_speed: movement speed of plane along its normal
+    thickness_factor: thickness fraction of the projection range
     """
-    # Load LED coordinates.
-    df = pd.read_csv(csv_file)
-    df['led_index'] = df.index
-    LED_COUNT = len(df)
-    
-    # LED strip configuration.
-    LED_PIN        = 18            # GPIO pin (data signal)
-    LED_FREQ_HZ    = 800000        # LED signal frequency in hertz
-    LED_DMA        = 10            # DMA channel for signal generation
-    LED_BRIGHTNESS = 125           # Brightness (0 to 255)
-    LED_INVERT     = False         # True to invert the signal if needed
-    LED_CHANNEL    = 0             # Set to 0 for GPIO 18
-    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
-                       LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-    strip.begin()
-    
-    overall_start = time.time()
-    while time.time() - overall_start < duration:
-        # Generate a random plane:
+    while True:
+        # Generate a random unit normal vector (A, B, C)
         A = random.uniform(-1, 1)
         B = random.uniform(-1, 1)
         C = random.uniform(-1, 1)
         norm = math.sqrt(A*A + B*B + C*C)
         if norm == 0:
             continue
-        A /= norm
-        B /= norm
-        C /= norm
-        
-        # For each LED, compute the projection p = A*x + B*y + C*z.
-        projections = []
-        for _, row in df.iterrows():
-            p = A * row['X'] + B * row['Y'] + C * row['Z']
-            projections.append(p)
+        A /= norm; B /= norm; C /= norm
+
+        # Compute projection of each LED onto normal
+        projections = [A*x + B*y + C*z for (x, y, z) in positions]
         min_p = min(projections)
         max_p = max(projections)
         proj_range = max_p - min_p
-        
-        # Set plane thickness as a fraction of the projection range.
+
+        # Determine plane thickness
         thickness = thickness_factor * proj_range
-        
-        # Start the plane at D = min_p - thickness and move to D = max_p + thickness.
+
+        # Animate plane from start to end
         D = min_p - thickness
         end_D = max_p + thickness
-        
-        # Choose a random color for this plane.
-        plane_color = Color(random.randint(0,255), random.randint(0,255), random.randint(0,255))
-        
-        plane_start = time.time()
-        prev_time = plane_start
-        # Animate the plane as long as it hasn't passed end_D and total duration not exceeded.
-        while D < end_D and (time.time() - overall_start) < duration:
-            # For each LED, compute its distance from the plane: |A*x+B*y+C*z+D|.
-            for _, row in df.iterrows():
-                x, y, z = row['X'], row['Y'], row['Z']
-                distance = abs(A * x + B * y + C * z + D)
-                if distance <= thickness/2:
-                    strip.setPixelColor(int(row['led_index']), plane_color)
-                else:
-                    strip.setPixelColor(int(row['led_index']), Color(0, 0, 0))
+        # Pick a random RGB color
+        plane_color = Color(random.randint(0,255),
+                             random.randint(0,255),
+                             random.randint(0,255))
+
+        prev_time = time.time()
+        # Slide the plane through the tree
+        while D < end_D:
+            clear_strip()
+            # Light LEDs within half-thickness of plane
+            for idx, p in enumerate(projections):
+                if abs(p + D) <= thickness / 2:
+                    strip.setPixelColor(int(df.at[idx, 'led_index']), plane_color)
             strip.show()
+            # Sleep for next frame
             time.sleep(interval)
-            
-            # Update D based on elapsed time.
-            current_time = time.time()
-            dt = current_time - prev_time
-            prev_time = current_time
+            # Advance D according to elapsed time
+            now = time.time()
+            dt = now - prev_time
+            prev_time = now
             D += plane_speed * dt
-        # End of one plane pass. Loop will choose a new random plane.
-    
-    # Turn off all LEDs after the animation.
-    for i in range(LED_COUNT):
-        strip.setPixelColor(i, Color(0, 0, 0))
-    strip.show()
+        # Loop to next random plane
 
 if __name__ == '__main__':
-    animate_random_planes('coordinates.csv', duration=30, interval=0.01, plane_speed=25, thickness_factor=0.8)
+    # Adjust parameters as needed
+    animate_random_planes(
+        interval=0.01,
+        plane_speed=25.0,
+        thickness_factor=0.8
+    )
