@@ -11,8 +11,8 @@ import random
 import math
 import argparse
 import pandas as pd
-import ambient_brightness    # patches PixelStrip.show() for ambient dimming
 from rpi_ws281x import PixelStrip, Color
+import ambient_brightness
 
 # ─── Argument Parsing ─────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(description="3D Voronoi Bloom on LED tree")
