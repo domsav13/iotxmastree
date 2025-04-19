@@ -3,8 +3,8 @@ import time
 import random
 import math
 import pandas as pd
-import ambient_brightness    # patches PixelStrip.show() for ambient dimming
 from rpi_ws281x import PixelStrip, Color
+import ambient_brightness
 
 # ─── LED & Coordinate Setup ────────────────────────────────────────────────────
 BASE_DIR   = __import__('os').path.dirname(__import__('os').path.abspath(__file__))
