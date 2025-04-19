@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LED Control UI</title>
+  <title>LED Control Dashboard</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    section { margin-bottom: 2rem; }
-    form { max-width: 320px; margin: auto; }
+    section { margin-bottom: 2rem; border: 1px solid #ccc; padding: 1rem; border-radius: 8px; }
+    h2 { margin-top: 0; }
+    form { max-width: 360px; margin: auto; }
     label { display: block; margin-top: 0.5rem; }
-    input, select { width: 100%; padding: 0.3rem; margin-top: 0.2rem; }
-    button { margin-top: 1rem; padding: 0.6rem; width: 100%; }
+    input, select { width: 100%; padding: 0.4rem; margin-top: 0.2rem; }
+    button { margin-top: 1rem; padding: 0.6rem; width: 100%; font-size: 1rem; }
   </style>
 </head>
 <body>
@@ -33,7 +34,7 @@
     <form action="/run_compass" method="post">
       <label>Number of Slices:<input type="number" name="num_slices" min="1" value="8"></label>
       <label>Width (# slices):<input type="number" name="width" min="1" value="1"></label>
-      <label>RPS:<input type="number" name="rps" step="0.1" value="0.2"></label>
+      <label>Rotations/sec:<input type="number" name="rps" step="0.1" value="0.2"></label>
       <label>Interval (s):<input type="number" name="interval" step="0.01" value="0.05"></label>
       <label>G (Green):<input type="number" name="g_comp" min="0" max="255" value="255"></label>
       <label>R (Red):<input type="number" name="r_comp" min="0" max="255" value="0"></label>
@@ -47,10 +48,100 @@
     <h2>Voronoi Bloom</h2>
     <form action="/run_voronoi" method="post">
       <label>Number of Seeds:<input type="number" name="num_seeds" min="1" value="5"></label>
-      <label>Frame Interval (s):<input type="number" name="interval" step="0.01" value="0.1"></label>
+      <label>Frame Interval (s):<input type="number" name="interval_v" step="0.01" value="0.1"></label>
       <label>Change Interval (s):<input type="number" name="change_interval" step="0.1" value="10.0"></label>
       <label>Transition (s):<input type="number" name="transition" step="0.1" value="2.0"></label>
       <button type="submit">Run Voronoi Bloom</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Platonic Solid Spinner</h2>
+    <form action="/run_platonic" method="post">
+      <label>Shape:
+        <select name="shape">
+          <option value="tetra">Tetrahedron</option>
+          <option value="cube">Cube</option>
+          <option value="icosa">Icosahedron</option>
+        </select>
+      </label>
+      <label>Interval (s):<input type="number" name="interval_p" step="0.01" value="0.05"></label>
+      <label>Speed (rps):<input type="number" name="speed" step="0.1" value="0.1"></label>
+      <label>Threshold (fraction):<input type="number" name="threshold" step="0.01" value="0.2"></label>
+      <label>Vertex Color (G,R,B):<input type="number" name="g_vert" min="0" max="255" placeholder="G" required><input type="number" name="r_vert" min="0" max="255" placeholder="R" required><input type="number" name="b_vert" min="0" max="255" placeholder="B" required></label>
+      <label>Edge Color (G,R,B):<input type="number" name="g_edge" min="0" max="255" placeholder="G" required><input type="number" name="r_edge" min="0" max="255" placeholder="R" required><input type="number" name="b_edge" min="0" max="255" placeholder="B" required></label>
+      <label><input type="checkbox" name="show_edges"> Show Edges</label>
+      <button type="submit">Run Platonic Spinner</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Vortex/Spiral Twister</h2>
+    <form action="/run_twister" method="post">
+      <label>Interval (s):<input type="number" name="interval_t" step="0.01" value="0.05"></label>
+      <label>Rotations/sec:<input type="number" name="rps_t" step="0.1" value="0.2"></label>
+      <label>Helix Turns:<input type="number" name="turns_t" step="0.1" value="3.0"></label>
+      <label>Z Range (0–1):<input type="number" name="z_range" step="0.01" value="1.0"></label>
+      <label><input type="checkbox" name="reverse_t"> Reverse Direction</label>
+      <button type="submit">Run Vortex Twister</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Multi-Snake Effect</h2>
+    <form action="/run_snake" method="post">
+      <label>Number of Snakes:<input type="number" name="num_snakes" min="1" value="1"></label>
+      <label>Length of Each Snake:<input type="number" name="length" min="1" value="15"></label>
+      <label>Frame Delay (s):<input type="number" name="delay" step="0.01" value="0.1"></label>
+      <label>Nearest Neighbors:<input type="number" name="neighbors" min="1" value="6"></label>
+      <label>Min Segment Brightness:<input type="number" name="min_bright" min="0" max="255" value="50"></label>
+      <label>Max Segment Brightness:<input type="number" name="max_bright" min="0" max="255" value="255"></label>
+      <button type="submit">Run Multi-Snake</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Random Plane Sweep</h2>
+    <form action="/run_random_plane" method="post">
+      <label>Frame Interval (s):<input type="number" name="interval_plane" step="0.01" value="0.01"></label>
+      <label>Plane Speed:<input type="number" name="plane_speed" step="0.1" value="50.0"></label>
+      <label>Thickness Factor:<input type="number" name="thickness" step="0.01" value="0.1"></label>
+      <button type="submit">Run Random Plane Sweep</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Contagious Spread Effect</h2>
+    <form action="/run_contagious" method="post">
+      <label>Frame Interval (s):<input type="number" name="interval_c" step="0.01" value="0.01"></label>
+      <label>Contagion Speed:<input type="number" name="speed_c" step="0.1" value="1.0"></label>
+      <label>Hold Time (s):<input type="number" name="hold_time" step="0.1" value="0.5"></label>
+      <button type="submit">Run Contagious Effect</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Galaxy Core Pulse</h2>
+    <form action="/run_pulse" method="post">
+      <label>Center LED Index:<input type="number" name="center" placeholder="Auto"></label>
+      <label>Interval (s):<input type="number" name="interval_pulse" step="0.01" value="0.05"></label>
+      <label>Speed (units/s):<input type="number" name="speed_pulse" step="0.1" value="10.0"></label>
+      <label>Thickness (0–1):<input type="number" name="thickness_pulse" step="0.01" value="0.1"></label>
+      <label>Color R:<input type="number" name="r_pulse" min="0" max="255" value="255"></label>
+      <label>Color G:<input type="number" name="g_pulse" min="0" max="255" value="255"></label>
+      <label>Color B:<input type="number" name="b_pulse" min="0" max="255" value="255"></label>
+      <button type="submit">Run Galaxy Core Pulse</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Fireworks Burst</h2>
+    <form action="/run_fireworks" method="post">
+      <label>Frame Interval (s):<input type="number" name="fw_interval" step="0.01" value="0.05"></label>
+      <label>Firework Duration (s):<input type="number" name="fw_duration" step="0.01" value="0.75"></label>
+      <label>Spawn Chance:<input type="number" name="fw_spawn" step="0.01" value="0.05"></label>
+      <label>Blast Radius Factor:<input type="number" name="fw_radius" step="0.01" value="0.5"></label>
+      <button type="submit">Run Fireworks Burst</button>
     </form>
   </section>
 
