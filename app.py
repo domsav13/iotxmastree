@@ -3,9 +3,11 @@ import subprocess
 import threading
 import pandas as pd
 import time
-from flask import Flask, render_template, request, redirect, url_for
+import collections
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from patterns.grb_tester import light_tree
 from rpi_ws281x import PixelStrip, Color
+from ambient_brightness import read_lux, map_lux_to_brightness
 
 app = Flask(__name__)
 
