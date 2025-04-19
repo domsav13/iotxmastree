@@ -175,6 +175,18 @@ def run_helix():
     _start_pattern(cmd)
     return redirect(url_for('index'))
 
+@app.route('/run_heartbeat', methods=['POST'])
+def run_heartbeat():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'heartbeat.py'),
+        '--period',        request.form.get('period', '1.0'),
+        '--min-intensity', request.form.get('min_int', '20'),
+        '--max-intensity', request.form.get('max_int', '255'),
+        '--frame-delay',   request.form.get('frame_delay', '0.02'),
+    ]
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
+
 @app.route('/stop', methods=['POST'])
 def stop():
     global task_process, grb_thread
