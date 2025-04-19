@@ -158,6 +158,22 @@ def run_fireworks():
     ]
     _start_pattern(cmd)
     return redirect(url_for('index'))
+    
+@app.route('/run_helix', methods=['POST'])
+def run_helix():
+    cmd = [
+        'python3', os.path.join(PATTERNS_DIR, 'double_helix_twist.py'),
+        '--interval',      request.form['interval_h'],
+        '--rps',           request.form['rps_h'],
+        '--turns',         request.form['turns_h'],
+        '--color1',        request.form['r1_h'], request.form['g1_h'], request.form['b1_h'],
+        '--color2',        request.form['r2_h'], request.form['g2_h'], request.form['b2_h']
+    ]
+    if request.form.get('reverse_h'):
+        cmd.append('--reverse')
+    cmd.extend(['--range', request.form['z_range_h']])
+    _start_pattern(cmd)
+    return redirect(url_for('index'))
 
 @app.route('/stop', methods=['POST'])
 def stop():
