@@ -3,34 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GRB Tester</title>
+  <title>LED Control UI</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    form { max-width: 300px; margin: auto; }
+    section { margin-bottom: 2rem; }
+    form { max-width: 320px; margin: auto; }
     label { display: block; margin-top: 0.5rem; }
-    input { width: 100%; padding: 0.25rem; margin-top: 0.25rem; }
-    button { margin-top: 1rem; padding: 0.5rem; width: 100%; }
+    input, select { width: 100%; padding: 0.3rem; margin-top: 0.2rem; }
+    button { margin-top: 1rem; padding: 0.6rem; width: 100%; }
   </style>
 </head>
 <body>
-  <h1>GRB Color Tester</h1>
-  <form action="/run_grb_test" method="post">
-    <label for="g">G (Green):</label>
-    <input type="number" id="g" name="g" min="0" max="255" required>
+  <h1>LED Control Dashboard</h1>
 
-    <label for="r">R (Red):</label>
-    <input type="number" id="r" name="r" min="0" max="255" required>
+  <section>
+    <h2>GRB Color Tester</h2>
+    <form action="/run_grb_test" method="post">
+      <label>G (Green):<input type="number" name="g" min="0" max="255" required></label>
+      <label>R (Red):<input type="number" name="r" min="0" max="255" required></label>
+      <label>B (Blue):<input type="number" name="b" min="0" max="255" required></label>
+      <label>Gamma:<input type="number" name="gamma" step="0.1" value="2.2"></label>
+      <label>Duration (s):<input type="number" name="duration" step="0.1" value="10"></label>
+      <button type="submit">Run GRB Test</button>
+    </form>
+  </section>
 
-    <label for="b">B (Blue):</label>
-    <input type="number" id="b" name="b" min="0" max="255" required>
+  <section>
+    <h2>Compass Rose / Angular Starburst</h2>
+    <form action="/run_compass" method="post">
+      <label>Number of Slices:<input type="number" name="num_slices" min="1" value="8"></label>
+      <label>Width (# slices):<input type="number" name="width" min="1" value="1"></label>
+      <label>RPS:<input type="number" name="rps" step="0.1" value="0.2"></label>
+      <label>Interval (s):<input type="number" name="interval" step="0.01" value="0.05"></label>
+      <label>G (Green):<input type="number" name="g_comp" min="0" max="255" value="255"></label>
+      <label>R (Red):<input type="number" name="r_comp" min="0" max="255" value="0"></label>
+      <label>B (Blue):<input type="number" name="b_comp" min="0" max="255" value="0"></label>
+      <label><input type="checkbox" name="reverse"> Reverse Direction</label>
+      <button type="submit">Run Compass Rose</button>
+    </form>
+  </section>
 
-    <label for="gamma">Gamma:</label>
-    <input type="number" id="gamma" name="gamma" step="0.1" value="2.2">
-
-    <label for="duration">Duration (s):</label>
-    <input type="number" id="duration" name="duration" step="0.1" value="10">
-
-    <button type="submit">Run Test</button>
-  </form>
+  <section>
+    <form action="/stop" method="post">
+      <button type="submit">Stop All Patterns</button>
+    </form>
+  </section>
 </body>
 </html>
