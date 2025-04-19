@@ -69,8 +69,8 @@ def clear_strip():
 
 # possible ornament colors (r, g, b)
 ORNAMENT_COLORS = [
-    (255, 0, 0),    # red
-    (255, 215, 0),  # gold
+    (0, 255, 0),    # red
+    (215, 255, 0),  # gold
     (0, 0, 255),    # blue
 ]
 
