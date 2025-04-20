@@ -22,7 +22,6 @@ def clear_all_leds():
     """Instantiate the strip and turn every LED off immediately."""
     df = pd.read_csv(COORDS_CSV)
     count = len(df)
-    # match your strip setup
     strip = PixelStrip(count, 18, 800000, 10, False, 255, 0)
     strip.begin()
     for i in range(count):
@@ -36,7 +35,6 @@ def index():
 @app.route('/run_grb_test', methods=['POST'])
 def run_grb_test():
     global grb_thread
-    # if already running, just go back
     if grb_thread and grb_thread.is_alive():
         return redirect(url_for('index'))
     try:
@@ -207,18 +205,15 @@ def run_heartbeat():
 
 @app.route('/all_off', methods=['POST'])
 def all_off():
-    # stop any running pattern subprocess
     global task_process
     if task_process:
         task_process.terminate()
         task_process = None
-    # turn off every LED
     clear_all_leds()
     return redirect(url_for('index'))
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    # this simply terminates the currently running pattern
     global task_process
     if task_process:
         task_process.terminate()
@@ -229,7 +224,6 @@ def stop():
 def dashboard():
     return render_template('dashboard.html')
 
-# 2️⃣ data API stays the same (or rename /data if you like)
 MAX_POINTS = 100
 timestamps  = collections.deque(maxlen=MAX_POINTS)
 lux_values  = collections.deque(maxlen=MAX_POINTS)
