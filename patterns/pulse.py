@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
 """
-galaxy_core_pulse.py
-
 Galaxy Core Pulse effect on a 3D LED tree:
 Expanding radial ripples from a central LED, fading outward.
 """
@@ -13,7 +10,6 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 import ambient_brightness
 
-# ─── Argument Parsing ─────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(description="Galaxy Core Pulse effect on 3D LED tree")
 parser.add_argument("--center", type=int, default=None,
                     help="Index of central LED (default: nearest to tree centroid)")
@@ -27,14 +23,12 @@ parser.add_argument("--color", nargs=3, type=int, default=[255,255,255],
                     metavar=('R','G','B'), help="Base RGB color for the pulse")
 args = parser.parse_args()
 
-# ─── LED & Coordinate Setup ────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 COORDS_CSV = os.path.join(BASE_DIR, 'coordinates.csv')
 df         = pd.read_csv(COORDS_CSV)
 positions  = df[['X','Y','Z']].values.tolist()
 LED_COUNT  = len(positions)
 
-# Determine tree centroid and choose center LED
 if args.center is None:
     centroid = [sum(c)/LED_COUNT for c in zip(*positions)]
     center_idx = min(range(LED_COUNT), key=lambda i: math.dist(positions[i], centroid))
@@ -42,12 +36,10 @@ else:
     center_idx = args.center
 center_pos = positions[center_idx]
 
-# Compute distances from center
 distances = [math.dist(center_pos, pos) for pos in positions]
 max_dist = max(distances)
 thickness = args.thickness * max_dist
 
-# Strip config
 LED_PIN        = 18
 LED_FREQ_HZ    = 800000
 LED_DMA        = 10
@@ -66,17 +58,14 @@ def clear_strip():
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0,0,0))
 
-# Base color
 base_r, base_g, base_b = args.color
 
-# Main animation loop
 start_time = time.perf_counter()
 try:
     while True:
         t = time.perf_counter() - start_time
         radius = (t * args.speed) % (max_dist + thickness)
 
-        # Update LEDs
         for i, d in enumerate(distances):
             diff = abs(d - radius)
             if diff <= thickness:
