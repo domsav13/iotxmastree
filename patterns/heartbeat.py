@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import time
 import math
@@ -6,13 +5,11 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 import ambient_brightness
 
-# ─── LED & Coordinate Setup ────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 COORDS_CSV = os.path.join(BASE_DIR, 'coordinates.csv')
 df = pd.read_csv(COORDS_CSV)
 LED_COUNT = len(df)
 
-# ─── Strip Configuration ───────────────────────────────────────────────────────
 LED_PIN        = 18      # PWM pin
 LED_FREQ_HZ    = 800000  # LED signal frequency in hertz
 LED_DMA        = 10      # DMA channel
@@ -26,8 +23,6 @@ strip = PixelStrip(
 )
 strip.begin()
 
-# ─── Heartbeat Envelope ────────────────────────────────────────────────────────
-# Two gaussian pulses per cycle ("lub-dub").
 BEAT_PERIOD     = 1.0    # seconds per heartbeat cycle (~60 BPM)
 MIN_INTENSITY   = 20     # LED value at trough
 MAX_INTENSITY   = 255    # LED value at peak
@@ -42,28 +37,23 @@ def heartbeat_envelope(t, period=BEAT_PERIOD):
     """
     sigma1 = period * 0.08
     sigma2 = period * 0.08
-    # primary pulse
     p1 = math.exp(-0.5 * (t / sigma1) ** 2)
-    # secondary pulse
     p2 = 0.6 * math.exp(-0.5 * ((t - 0.3 * period) / sigma2) ** 2)
     val = p1 + p2
     return min(val, 1.0)
 
-# ─── Main Loop ────────────────────────────────────────────────────────────────
 try:
     start_time = time.time()
     while True:
         elapsed = (time.time() - start_time) % BEAT_PERIOD
         env = heartbeat_envelope(elapsed)
         brightness = int(MIN_INTENSITY + env * (MAX_INTENSITY - MIN_INTENSITY))
-        # set all pixels to red with this intensity
         color = Color(0, brightness, 0)
         for i in range(LED_COUNT):
             strip.setPixelColor(i, color)
-        strip.show()  # ambient_brightness will adjust further
+        strip.show()  
         time.sleep(FRAME_DELAY)
 
 except KeyboardInterrupt:
-    # turn off on exit
     strip.clear()
     strip.show()
