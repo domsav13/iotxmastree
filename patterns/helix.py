@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
 """
-double_helix_twist.py
-
 Double Helix DNA Twist effect on a 3D LED tree:
 Two intertwining color bands spiral up/down the tree.
 """
@@ -13,7 +10,6 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 import ambient_brightness
 
-# ─── Argument Parsing ─────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(description="Double Helix DNA Twist on 3D LED tree")
 parser.add_argument("--interval", type=float, default=0.05,
                     help="Seconds between frames")
@@ -39,19 +35,16 @@ COLOR2   = tuple(args.color2)
 REVERSE  = -1.0 if args.reverse else 1.0
 Z_RANGE  = max(0.0, min(1.0, args.range))
 
-# ─── LED & Coordinate Setup ────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 COORDS_CSV = os.path.join(BASE_DIR, 'coordinates.csv')
 df         = pd.read_csv(COORDS_CSV)
 positions  = df[['X','Y','Z']].values.tolist()
 LED_COUNT  = len(positions)
 
-# Compute Z bounds
 zs = [p[2] for p in positions]
 z_min, z_max = min(zs), max(zs)
 height = z_max - z_min if z_max>z_min else 1.0
 
-# Precompute theta (angle) and normalized z for each LED
 led_theta = []
 led_znorm = []
 for x, y, z in positions:
@@ -61,7 +54,6 @@ for x, y, z in positions:
     led_theta.append(theta)
     led_znorm.append(z_norm)
 
-# ─── Strip Configuration ───────────────────────────────────────────────────────
 LED_PIN        = 18
 LED_FREQ_HZ    = 800000
 LED_DMA        = 10
@@ -80,7 +72,6 @@ def clear_strip():
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
 
-# ─── Main Loop ────────────────────────────────────────────────────────────────
 start = time.perf_counter()
 try:
     while True:
@@ -89,13 +80,9 @@ try:
         for i in range(LED_COUNT):
             theta = led_theta[i]
             zf    = led_znorm[i]
-            # phase combines rotation and vertical helical offset
             phase = theta + t + 2 * math.pi * TURNS * (1 - zf)
-            # strand1: sine wave bright when sin(phase)>0
             v1 = max(0.0, math.sin(phase))
-            # strand2 offset by π
             v2 = max(0.0, math.sin(phase + math.pi))
-            # compute final RGB contributions
             r = int(COLOR1[0] * v1 + COLOR2[0] * v2)
             g = int(COLOR1[1] * v1 + COLOR2[1] * v2)
             b = int(COLOR1[2] * v1 + COLOR2[2] * v2)
