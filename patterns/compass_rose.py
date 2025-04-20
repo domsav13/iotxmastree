@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
 """
-compass_rose.py
-
 Compass Rose / Angular Starburst effect on a 3D LED tree:
 Lights up LEDs in rotating angular slices (like a compass needle or starburst).
 """
@@ -13,7 +10,6 @@ import pandas as pd
 from rpi_ws281x import PixelStrip, Color
 import ambient_brightness
 
-# ─── Argument Parsing ─────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(description="Compass Rose angular starburst on 3D LED tree")
 parser.add_argument("-n", "--num-slices", type=int, default=8,
                     help="Total angular slices around 360°")
@@ -36,27 +32,23 @@ INTERVAL   = args.interval
 COLOR      = tuple(args.color)
 REVERSE    = -1.0 if args.reverse else 1.0
 
-# ─── Load LED Coordinates ──────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 COORDS_CSV = os.path.join(BASE_DIR, 'coordinates.csv')
 df         = pd.read_csv(COORDS_CSV)
 positions  = df[['X','Y','Z']].values.tolist()
 LED_COUNT  = len(positions)
 
-# Compute centroid for angle reference
 xs = [p[0] for p in positions]
 ys = [p[1] for p in positions]
 cx = sum(xs) / LED_COUNT
 cy = sum(ys) / LED_COUNT
 
-# Precompute angular fraction for each LED
 led_frac = []
 for x, y, _ in positions:
     theta = math.atan2(y - cy, x - cx)  # -pi..pi
     frac  = (theta / (2 * math.pi) + 1.0) % 1.0  # normalize to [0,1)
     led_frac.append(frac)
 
-# ─── LED Strip Setup ───────────────────────────────────────────────────────────
 LED_PIN        = 18
 LED_FREQ_HZ    = 800000
 LED_DMA        = 10
@@ -74,14 +66,12 @@ def clear_strip():
     for i in range(LED_COUNT):
         strip.setPixelColor(i, Color(0, 0, 0))
 
-# ─── Main Loop ────────────────────────────────────────────────────────────────
 start = time.perf_counter()
 try:
     while True:
         t = (time.perf_counter() - start)
         pos = (t * RPS * REVERSE) % 1.0
         current_slice = int(pos * NUM_SLICES)
-        # determine active slices set
         active = {(current_slice + offset) % NUM_SLICES for offset in range(WIDTH)}
 
         clear_strip()
