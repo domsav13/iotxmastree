@@ -1,10 +1,7 @@
-# ambient_brightness.py
-
 import time
 import smbus
 from rpi_ws281x import PixelStrip
 
-# === BH1750 Setup ===
 BH1750_ADDR = 0x23
 BH1750_CMD  = 0x10
 bus = smbus.SMBus(1)
@@ -19,7 +16,6 @@ def read_lux():
     except:
         return None
 
-# === Brightness mapping params ===
 MIN_BRIGHTNESS = 10
 MAX_BRIGHTNESS = 255
 LUX_MIN, LUX_MAX = 0, 1000
@@ -31,15 +27,12 @@ def map_lux_to_brightness(lux):
     norm = (lux - LUX_MIN) / (LUX_MAX - LUX_MIN)
     return int(MAX_BRIGHTNESS - norm * (MAX_BRIGHTNESS - MIN_BRIGHTNESS))
 
-# === Monkey‑patch PixelStrip.show() ===
 _original_show = PixelStrip.show
 
 def _patched_show(self, *args, **kwargs):
     lux = read_lux()
     br  = map_lux_to_brightness(lux)
     self.setBrightness(br)
-    # (optional) uncomment to debug in your patterns/music logs:
-    # print(f"[ambient] {lux:.1f} lux → brightness {br}")
     return _original_show(self, *args, **kwargs)
 
 PixelStrip.show = _patched_show
